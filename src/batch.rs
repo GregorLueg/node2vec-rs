@@ -2,18 +2,39 @@ use burn::data::dataloader::batcher::Batcher;
 use burn::prelude::*;
 use burn::tensor::{Int, TensorData};
 
-#[derive(Clone)]
+/// Batch structure for skip-gram training containing context-target pairs
+///
+/// ### Fields
+///
+/// * `contexts` - The context tokens
+/// * `targets` - The target tokens
+#[derive(Clone, Debug)]
 pub struct SkipGramBatch<B: Backend> {
     pub contexts: Tensor<B, 1, Int>,
     pub targets: Tensor<B, 1, Int>,
 }
 
+/// Batcher that converts random walks into skip-gram training pairs
+///
+/// ### Fields
+///
+/// * `window_size` - The window size of the centre word.
 #[derive(Clone)]
 pub struct SkipGramBatcher {
     window_size: usize,
 }
 
 impl SkipGramBatcher {
+    /// Creates a new batcher with the specified context window size
+    ///
+    /// ### Params
+    ///
+    /// * `window_size` - Number of words to consider on each side of the centre
+    ///   word
+    ///
+    /// ### Returns
+    ///
+    /// Initialised self.
     pub fn new(window_size: usize) -> Self {
         Self { window_size }
     }
@@ -21,8 +42,9 @@ impl SkipGramBatcher {
 
 impl<B: Backend> Batcher<B, Vec<u32>, SkipGramBatch<B>> for SkipGramBatcher {
     fn batch(&self, items: Vec<Vec<u32>>, device: &B::Device) -> SkipGramBatch<B> {
-        let mut contexts = Vec::new();
-        let mut targets = Vec::new();
+        let capacity = items.iter().map(|w| w.len() * self.window_size * 2).sum();
+        let mut contexts = Vec::with_capacity(capacity);
+        let mut targets = Vec::with_capacity(capacity);
 
         for walk in items {
             for (center_idx, &center_node) in walk.iter().enumerate() {
