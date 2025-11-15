@@ -4,3 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+burn = "0.19.1"
+csv = "1.4.0"
+rayon = "1.11.0"
+rustc-hash = "2.1.1"
