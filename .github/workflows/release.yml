@@ -121,6 +121,8 @@ jobs:
     needs: [check-version, build]
     if: needs.check-version.outputs.tag_exists == 'false'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     
     steps:
       - uses: actions/checkout@v4
