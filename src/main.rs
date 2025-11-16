@@ -5,19 +5,95 @@ mod model;
 mod reader;
 mod train;
 
-use burn::backend::{Autodiff, LibTorch};
 use clap::Parser;
 use model::SkipGramConfig;
 use reader::read_graph;
-use train::{Args, TrainingConfig, train};
+use train::{train, Args, TrainingConfig};
+
+/// Default version uses torch CPU... It's fast across most platforms
+#[cfg(feature = "tch-cpu")]
+mod tch_cpu {
+    use super::{train, SkipGramConfig};
+    use burn::backend::{
+        libtorch::{LibTorch, LibTorchDevice},
+        Autodiff,
+    };
+
+    pub fn run(
+        output: &str,
+        model_config: SkipGramConfig,
+        training_config: super::TrainingConfig,
+        train_walks: Vec<Vec<u32>>,
+        valid_walks: Vec<Vec<u32>>,
+    ) {
+        let device = LibTorchDevice::Cpu;
+        train::<Autodiff<LibTorch>>(
+            output,
+            model_config,
+            training_config,
+            train_walks,
+            valid_walks,
+            device,
+        );
+    }
+}
+
+#[cfg(any(feature = "wgpu", feature = "metal", feature = "vulkan"))]
+mod wgpu {
+    use super::{train, SkipGramConfig};
+    use burn::backend::{
+        wgpu::{Wgpu, WgpuDevice},
+        Autodiff,
+    };
+
+    pub fn run(
+        output: &str,
+        model_config: SkipGramConfig,
+        training_config: super::TrainingConfig,
+        train_walks: Vec<Vec<u32>>,
+        valid_walks: Vec<Vec<u32>>,
+    ) {
+        let device = WgpuDevice::default();
+        train::<Autodiff<Wgpu>>(
+            output,
+            model_config,
+            training_config,
+            train_walks,
+            valid_walks,
+            device,
+        );
+    }
+}
+
+#[cfg(any(feature = "ndarray", feature = "ndarray-blas-openblas",))]
+mod ndarray {
+    use super::{train, SkipGramConfig};
+    use burn::backend::{
+        ndarray::{NdArray, NdArrayDevice},
+        Autodiff,
+    };
+
+    pub fn run(
+        output: &str,
+        model_config: SkipGramConfig,
+        training_config: super::TrainingConfig,
+        train_walks: Vec<Vec<u32>>,
+        valid_walks: Vec<Vec<u32>>,
+    ) {
+        let device = NdArrayDevice::Cpu;
+        train::<Autodiff<NdArray>>(
+            output,
+            model_config,
+            training_config,
+            train_walks,
+            valid_walks,
+            device,
+        );
+    }
+}
 
 fn main() {
     let args = Args::parse();
-
-    type MyBackend = LibTorch<f32>;
-    type MyAutodiffBackend = Autodiff<MyBackend>;
-
-    let device = burn::backend::libtorch::LibTorchDevice::Cpu;
 
     let training_config = TrainingConfig::from_args(&args);
 
@@ -43,12 +119,30 @@ fn main() {
 
     let model_config = SkipGramConfig::new(vocab_size as usize, args.embedding_dim);
 
-    train::<MyAutodiffBackend>(
+    #[cfg(feature = "tch-cpu")]
+    tch_cpu::run(
         &args.output,
         model_config,
         training_config,
         train_walks,
         valid_walks,
-        device,
+    );
+
+    #[cfg(any(feature = "ndarray", feature = "ndarray-blas-openblas",))]
+    ndarray::run(
+        &args.output,
+        model_config,
+        training_config,
+        train_walks,
+        valid_walks,
+    );
+
+    #[cfg(any(feature = "wgpu", feature = "metal", feature = "vulkan"))]
+    wgpu::run(
+        &args.output,
+        model_config,
+        training_config,
+        train_walks,
+        valid_walks,
     );
 }

@@ -11,10 +11,15 @@ node sequences, which are then used to learn embeddings via a Skip-Gram model.
 ## Usage
 
 Build and run:
+
 ```bash
 cargo build --release
 cargo run --release -- --input <PATH TO GRAPH CSV>
 ```
+
+In the standard version, this implementation uses the libtorch CPU backend. This
+works well across most OS, but `ndarray` and `wgpu` are also enabled (more to 
+that later).
 
 ### Input Format
 
@@ -24,6 +29,8 @@ from,to,weight
 1,2,0.5
 2,3,0.5
 ```
+
+You can find a Barabasi-based graph in `test/data/test_graph.csv`.
 
 ### Command-line Arguments
 
@@ -55,7 +62,7 @@ cargo run --release -- --input data/karate.csv --embedding-dim 64 --num-epochs 1
 
 Train on a directed graph with custom node2vec parameters:
 ```bash
-cargo run --release -- --input data/graph.csv --directed --p 0.5 --q 2.0
+cargo run --release -- --input test/data/test_graph.csv --directed --p 0.5 --q 2.0
 ```
 
 Full customisation:

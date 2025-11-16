@@ -1,8 +1,7 @@
 use burn::config::Config;
 use burn::module::Module;
 use burn::nn::{Embedding, EmbeddingConfig};
-use burn::tensor::activation;
-use burn::tensor::{Int, Tensor, backend::Backend};
+use burn::tensor::{activation, backend::Backend, Int, Tensor};
 
 /// SkipGram model for word embeddings.
 ///
