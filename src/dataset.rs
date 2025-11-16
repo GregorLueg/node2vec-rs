@@ -4,7 +4,7 @@ use burn::data::dataset::Dataset;
 ///
 /// ### Fields
 ///
-/// * `walks` - The underlying walks
+/// * `walks` - Slice of the underlying walks
 pub struct WalkDataset {
     walks: Vec<Vec<u32>>,
 }
