@@ -5,14 +5,7 @@ edition = "2021"
 authors = ["Gregor Lueg <gregorlueg@me.com>"]
 
 [dependencies]
-burn = { version = "0.19.1", features = [
-    "dataset",
-    "train",
-    "tch",
-    "ndarray",
-    "openblas",
-    "wgpu",
-] }
+burn = { version = "0.19.1", features = ["dataset", "train"] }
 clap = { version = "4.5.51", features = ["derive"] }
 csv = "1.4.0"
 indicatif = "0.18.3"
@@ -23,12 +16,9 @@ tempfile = "3.23.0"
 
 [features]
 default = ["tch-cpu"]
-
 ndarray = ["burn/ndarray"]
 ndarray-blas-openblas = ["burn/ndarray", "burn/openblas"]
-
 tch-cpu = ["burn/tch"]
-
 wgpu = ["burn/wgpu"]
 metal = ["burn/metal"]
 vulkan = ["burn/vulkan"]

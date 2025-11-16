@@ -2,22 +2,70 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [main]
+    paths:
+      - 'Cargo.toml'
+  workflow_dispatch:
 
 jobs:
-  release:
-    name: Release on ${{ matrix.os }}
+  check-version:
+    name: Check version and create release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag_exists: ${{ steps.check_tag.outputs.exists }}
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Extract version from Cargo.toml
+        id: version
+        run: |
+          VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          echo "version=v$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: v$VERSION"
+      
+      - name: Check if tag exists
+        id: check_tag
+        run: |
+          if git rev-parse "${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Tag ${{ steps.version.outputs.version }} already exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Tag ${{ steps.version.outputs.version }} does not exist"
+          fi
+      
+      - name: Create tag
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git tag ${{ steps.version.outputs.version }}
+          git push origin ${{ steps.version.outputs.version }}
+
+  build:
+    name: Build on ${{ matrix.os }}
+    needs: check-version
+    if: needs.check-version.outputs.tag_exists == 'false'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+            archive: tar.gz
           - os: macos-latest
             target: x86_64-apple-darwin
+            archive: tar.gz
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            archive: tar.gz
           - os: windows-latest
             target: x86_64-pc-windows-msvc
+            archive: zip
     
     steps:
       - uses: actions/checkout@v4
@@ -27,24 +75,60 @@ jobs:
         with:
           targets: ${{ matrix.target }}
       
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
+      
       - name: Build release
         run: cargo build --release --features tch-cpu --target ${{ matrix.target }}
       
       - name: Package binary (Unix)
-        if: matrix.os != 'windows-latest'
+        if: matrix.archive == 'tar.gz'
         run: |
           cd target/${{ matrix.target }}/release
           tar czf ../../../node2vec-${{ matrix.target }}.tar.gz node2vec
       
       - name: Package binary (Windows)
-        if: matrix.os == 'windows-latest'
+        if: matrix.archive == 'zip'
+        shell: pwsh
         run: |
           cd target/${{ matrix.target }}/release
-          7z a ../../../node2vec-${{ matrix.target }}.zip node2vec.exe
+          Compress-Archive -Path node2vec.exe -DestinationPath ../../../node2vec-${{ matrix.target }}.zip
       
-      - name: Upload Release Asset
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: node2vec-${{ matrix.target }}
+          path: node2vec-${{ matrix.target }}.*
+
+  release:
+    name: Create GitHub Release
+    needs: [check-version, build]
+    if: needs.check-version.outputs.tag_exists == 'false'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      
+      - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: node2vec-${{ matrix.target }}.*
+          tag_name: ${{ needs.check-version.outputs.version }}
+          name: Release ${{ needs.check-version.outputs.version }}
+          draft: false
+          prerelease: false
+          files: artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
