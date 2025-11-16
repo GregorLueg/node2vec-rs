@@ -88,6 +88,14 @@ jobs:
             target/
           key: ${{ runner.os }}-${{ matrix.target }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
       
+      - name: Cache LibTorch
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/torch
+            ~/libtorch
+          key: ${{ runner.os }}-${{ matrix.target }}-libtorch-2.9.0
+
       - name: Build release
         run: cargo build --release --features tch-cpu --target ${{ matrix.target }}
       
