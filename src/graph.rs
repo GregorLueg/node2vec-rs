@@ -1,3 +1,4 @@
+use indicatif::{ProgressBar, ProgressStyle};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rayon::prelude::*;
@@ -12,7 +13,8 @@ use rustc_hash::{FxHashMap, FxHashSet};
 /// ### Params
 ///
 /// * `adjacency` - The adjacency of the graph stored as a HashMap
-/// * `p` - p parameter in node2vec that controls probability to return
+/// * `p` - p parameter in node2vec that controls probability to return to
+///   origin node.
 /// * `q` - q parameter in node2vec that controls probability to reach out
 ///   futher in the graph.
 ///
@@ -102,21 +104,35 @@ impl Node2VecGraph {
         walk_length: usize,
         seed: u64,
     ) -> Vec<Vec<u32>> {
-        use rayon::prelude::*;
+        let total_walks = self.adjacency.len() * walks_per_node;
+        let progress = ProgressBar::new(total_walks as u64);
 
-        self.adjacency
+        progress.set_style(
+            ProgressStyle::default_bar()
+                .template("[Random walk gen: {elapsed_precise}] {bar:40.cyan/blue} {pos}/{len}")
+                .unwrap()
+                .progress_chars("#>-"),
+        );
+
+        let walks = self
+            .adjacency
             .par_iter()
             .flat_map(|(start_node, _)| {
+                let progress = progress.clone();
                 (0..walks_per_node).into_par_iter().map(move |walk_idx| {
-                    // seed per thread
                     let walk_seed = seed
                         .wrapping_mul(*start_node as u64)
                         .wrapping_add(walk_idx as u64);
                     let mut rng = StdRng::seed_from_u64(walk_seed);
-                    self.single_walk(*start_node, walk_length, &mut rng)
+                    let walk = self.single_walk(*start_node, walk_length, &mut rng);
+                    progress.inc(1);
+                    walk
                 })
             })
-            .collect()
+            .collect();
+
+        progress.finish();
+        walks
     }
 
     /// Performs a single biased random walk

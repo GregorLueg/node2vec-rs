@@ -1,3 +1,5 @@
+#![allow(clippy::needless_range_loop)]
+
 use burn::data::dataloader::batcher::Batcher;
 use burn::prelude::*;
 use burn::tensor::{Int, TensorData};
@@ -41,6 +43,16 @@ impl SkipGramBatcher {
 }
 
 impl<B: Backend> Batcher<B, Vec<u32>, SkipGramBatch<B>> for SkipGramBatcher {
+    /// Generate a batch
+    ///
+    /// ### Params
+    ///
+    /// * `items` - The random walks for node2vec
+    /// * `device` - The device on which to store the tensors
+    ///
+    /// ### Return
+    ///
+    /// The `SkipGramBatch` with contexts and targets.
     fn batch(&self, items: Vec<Vec<u32>>, device: &B::Device) -> SkipGramBatch<B> {
         let capacity = items.iter().map(|w| w.len() * self.window_size * 2).sum();
         let mut contexts = Vec::with_capacity(capacity);

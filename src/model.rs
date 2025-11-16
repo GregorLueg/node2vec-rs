@@ -11,7 +11,9 @@ use burn::tensor::{Int, Tensor, backend::Backend};
 ///
 /// ### Fields
 ///
-/// * `target`
+/// * `target_embd` - The target embedding
+/// * `context_embd` - The context embedding
+/// * `vocab_size` - The vocabulary size, i.e., number of nodes in node2vec
 #[derive(Module, Debug)]
 pub struct SkipGramModel<B: Backend> {
     target_embd: Embedding<B>,
@@ -19,6 +21,12 @@ pub struct SkipGramModel<B: Backend> {
     pub vocab_size: usize,
 }
 
+/// Config for the SkipGram model
+///
+/// ### Fields
+///
+/// * `vocab_size` - Size of the vocabulary
+/// * `embedding_dim` - Size of the embedding
 #[derive(Config, Debug)]
 pub struct SkipGramConfig {
     pub vocab_size: usize,
@@ -26,6 +34,15 @@ pub struct SkipGramConfig {
 }
 
 impl SkipGramConfig {
+    /// Initialise the model
+    ///
+    /// ### Params
+    ///
+    /// * `device` - The device on which to run the model
+    ///
+    /// ### Returns
+    ///
+    /// Initialised model
     pub fn init<B: Backend>(&self, device: &B::Device) -> SkipGramModel<B> {
         SkipGramModel {
             target_embd: EmbeddingConfig::new(self.vocab_size, self.embedding_dim).init(device),

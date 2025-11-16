@@ -25,10 +25,24 @@ impl WalkDataset {
 }
 
 impl Dataset<Vec<u32>> for WalkDataset {
+    /// Getter function for a walk
+    ///
+    /// ### Params
+    ///
+    /// * `index` - The index of the walk
+    ///
+    /// ### Returns
+    ///
+    /// The given random walk
     fn get(&self, index: usize) -> Option<Vec<u32>> {
         self.walks.get(index).cloned()
     }
 
+    /// Get the total length
+    ///
+    /// ### Returns
+    ///
+    /// Length of the random walks
     fn len(&self) -> usize {
         self.walks.len()
     }
