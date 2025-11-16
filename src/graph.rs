@@ -227,3 +227,120 @@ impl Node2VecGraph {
         }
     }
 }
+
+#[cfg(test)]
+mod graph_tests {
+    use crate::graph::compute_transition_prob;
+    use rustc_hash::FxHashMap;
+
+    #[test]
+    fn test_transition_probs_sum_to_one() {
+        let mut adjacency = FxHashMap::default();
+        adjacency.insert(1, vec![(2, 1.0), (3, 1.0)]);
+        adjacency.insert(2, vec![(1, 1.0), (3, 1.0)]);
+        adjacency.insert(3, vec![(1, 1.0), (2, 1.0)]);
+
+        let probs = compute_transition_prob(&adjacency, 1.0, 1.0);
+
+        // Check all cumulative probabilities end at ~1.0
+        for (_, cumulative_probs) in probs.iter() {
+            let last_prob = cumulative_probs.last().unwrap().1;
+            assert!((last_prob - 1.0).abs() < 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_transition_probs_p_parameter() {
+        // Simple chain: 1 - 2 - 3
+        let mut adjacency = FxHashMap::default();
+        adjacency.insert(1, vec![(2, 1.0)]);
+        adjacency.insert(2, vec![(1, 1.0), (3, 1.0)]);
+        adjacency.insert(3, vec![(2, 1.0)]);
+
+        // With p=0.5, returning to origin should be more likely
+        let probs_low_p = compute_transition_prob(&adjacency, 0.5, 1.0);
+        // With p=2.0, returning to origin should be less likely
+        let probs_high_p = compute_transition_prob(&adjacency, 2.0, 1.0);
+
+        // When at node 2 coming from node 1, check probability of returning to 1
+        let low_p_return = &probs_low_p[&(1, 2)];
+        let high_p_return = &probs_high_p[&(1, 2)];
+
+        // Find the cumulative probability for node 1 (return)
+        let low_p_val = low_p_return.iter().find(|(n, _)| *n == 1).unwrap().1;
+        let high_p_val = high_p_return.iter().find(|(n, _)| *n == 1).unwrap().1;
+
+        // Lower p should give higher probability of return
+        assert!(low_p_val > high_p_val);
+    }
+
+    #[test]
+    fn test_transition_probs_q_parameter() {
+        // Triangle: 1 - 2 - 3, with 1 - 3 edge
+        let mut adjacency = FxHashMap::default();
+        adjacency.insert(1, vec![(2, 1.0), (3, 1.0)]);
+        adjacency.insert(2, vec![(1, 1.0), (3, 1.0)]);
+        adjacency.insert(3, vec![(1, 1.0), (2, 1.0)]);
+
+        // With q=0.5, exploring further should be more likely
+        let probs_low_q = compute_transition_prob(&adjacency, 1.0, 0.5);
+        // With q=2.0, exploring further should be less likely
+        let probs_high_q = compute_transition_prob(&adjacency, 1.0, 2.0);
+
+        // Both should normalise to 1.0
+        for probs in [&probs_low_q, &probs_high_q] {
+            for cumulative_probs in probs.values() {
+                let last = cumulative_probs.last().unwrap().1;
+                assert!((last - 1.0).abs() < 1e-6);
+            }
+        }
+    }
+
+    #[test]
+    fn test_transition_probs_uniform_with_p_q_one() {
+        let mut adjacency = FxHashMap::default();
+        adjacency.insert(1, vec![(2, 1.0), (3, 1.0)]);
+        adjacency.insert(2, vec![(1, 1.0), (3, 1.0)]);
+        adjacency.insert(3, vec![(1, 1.0), (2, 1.0)]);
+
+        let probs = compute_transition_prob(&adjacency, 1.0, 1.0);
+
+        // With p=q=1 and equal weights, all transitions should be uniform
+        for cumulative_probs in probs.values() {
+            if cumulative_probs.len() == 2 {
+                // Each neighbour should have ~0.5 probability
+                let first_prob = cumulative_probs[0].1;
+                assert!((first_prob - 0.5).abs() < 1e-6);
+            }
+        }
+    }
+
+    #[test]
+    fn test_isolated_node() {
+        let mut adjacency = FxHashMap::default();
+        adjacency.insert(1, vec![]);
+
+        let probs = compute_transition_prob(&adjacency, 1.0, 1.0);
+
+        // Isolated node should have no transition probabilities
+        assert!(probs.is_empty());
+    }
+
+    #[test]
+    fn test_weighted_transitions() {
+        let mut adjacency = FxHashMap::default();
+        adjacency.insert(1, vec![(2, 3.0)]);
+        adjacency.insert(2, vec![(1, 3.0), (3, 1.0)]);
+        adjacency.insert(3, vec![(2, 1.0)]);
+
+        let probs = compute_transition_prob(&adjacency, 1.0, 1.0);
+
+        // At node 2 coming from 1, going back to 1 should be more likely (weight 3.0 vs 1.0)
+        let probs_at_2 = &probs[&(1, 2)];
+        let prob_to_1 = probs_at_2.iter().find(|(n, _)| *n == 1).unwrap().1;
+        let prob_to_3 = probs_at_2.iter().find(|(n, _)| *n == 3).unwrap().1;
+
+        assert!(prob_to_1 < prob_to_3); // cumulative, so first is less than second
+        assert!((prob_to_3 - 1.0).abs() < 1e-6); // last should sum to 1
+    }
+}
