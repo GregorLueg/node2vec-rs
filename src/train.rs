@@ -215,7 +215,7 @@ pub fn train<B: AutodiffBackend>(
     train_walks: Vec<Vec<u32>>,
     valid_walks: Vec<Vec<u32>>,
     device: B::Device,
-) {
+) -> SkipGramModel<B> {
     let mut model = model_config.init::<B>(&device);
     let mut optim = AdamConfig::new().init();
     let batcher = SkipGramBatcher::new(training_config.window_size);
@@ -292,7 +292,7 @@ pub fn train<B: AutodiffBackend>(
         let valid_bar = ProgressBar::new(valid_batches as u64);
         valid_bar.set_style(
             ProgressStyle::default_bar()
-                .template("[Validation] {bar:40.magenta/blue} {pos}/{len} batches")
+                .template("[Validation] {bar:40.magenta/blue} {pos}/{len} batches | {msg}")
                 .unwrap()
                 .progress_chars("=>-"),
         );
@@ -316,8 +316,11 @@ pub fn train<B: AutodiffBackend>(
             valid_bar.inc(1);
         }
 
-        valid_bar.finish_with_message(format!("Avg Loss: {:.6}", total_loss / num_batches as f64));
-        println!("Epoch {}: Validation complete", epoch);
+        valid_bar.finish_with_message(format!(
+            "Avg. Validation Loss: {:.6}",
+            total_loss / num_batches as f64
+        ));
+        println!("--- Epoch done ---");
         epoch_bar.inc(1);
     }
 
@@ -325,6 +328,9 @@ pub fn train<B: AutodiffBackend>(
 
     std::fs::create_dir_all(artifact_dir).ok();
     model
+        .clone()
         .save_file(format!("{artifact_dir}/model"), &CompactRecorder::new())
         .expect("Failed to save model");
+
+    model
 }

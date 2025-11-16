@@ -5,7 +5,7 @@ edition = "2021"
 authors = ["Gregor Lueg <gregorlueg@me.com>"]
 
 [dependencies]
-burn = { version = "0.19", features = [
+burn = { version = "0.19.1", features = [
     "dataset",
     "train",
     "tch",
@@ -27,7 +27,6 @@ ndarray = ["burn/ndarray"]
 ndarray-blas-openblas = ["burn/ndarray", "burn/openblas"]
 
 tch-cpu = ["burn/tch"]
-tch-gpu = ["burn/tch"]
 
 wgpu = ["burn/wgpu"]
 metal = ["burn/metal"]

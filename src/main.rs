@@ -25,9 +25,15 @@ mod tch_cpu {
         training_config: super::TrainingConfig,
         train_walks: Vec<Vec<u32>>,
         valid_walks: Vec<Vec<u32>>,
+        seed: &u64,
     ) {
+        use burn::prelude::Backend;
+
         let device = LibTorchDevice::Cpu;
-        train::<Autodiff<LibTorch>>(
+
+        LibTorch::<f32>::seed(&device, *seed);
+
+        let model = train::<Autodiff<LibTorch>>(
             output,
             model_config,
             training_config,
@@ -35,6 +41,11 @@ mod tch_cpu {
             valid_walks,
             device,
         );
+
+        let embeddings_path = std::path::Path::new(output).join("embeddings.csv");
+        model
+            .write_embeddings_csv(embeddings_path.to_str().unwrap())
+            .expect("Failed to write embeddings");
     }
 }
 
@@ -52,9 +63,15 @@ mod wgpu {
         training_config: super::TrainingConfig,
         train_walks: Vec<Vec<u32>>,
         valid_walks: Vec<Vec<u32>>,
+        seed: &u64,
     ) {
+        use burn::prelude::Backend;
+
         let device = WgpuDevice::default();
-        train::<Autodiff<Wgpu>>(
+
+        Wgpu::<f32>::seed(&device, *seed);
+
+        let model = train::<Autodiff<Wgpu>>(
             output,
             model_config,
             training_config,
@@ -62,6 +79,11 @@ mod wgpu {
             valid_walks,
             device,
         );
+
+        let embeddings_path = std::path::Path::new(output).join("embeddings.csv");
+        model
+            .write_embeddings_csv(embeddings_path.to_str().unwrap())
+            .expect("Failed to write embeddings");
     }
 }
 
@@ -79,9 +101,15 @@ mod ndarray {
         training_config: super::TrainingConfig,
         train_walks: Vec<Vec<u32>>,
         valid_walks: Vec<Vec<u32>>,
+        seed: &u64,
     ) {
+        use burn::prelude::Backend;
+
         let device = NdArrayDevice::Cpu;
-        train::<Autodiff<NdArray>>(
+
+        NdArray::<f32>::seed(&device, *seed);
+
+        let model = train::<Autodiff<NdArray>>(
             output,
             model_config,
             training_config,
@@ -89,6 +117,11 @@ mod ndarray {
             valid_walks,
             device,
         );
+
+        let embeddings_path = std::path::Path::new(output).join("embeddings.csv");
+        model
+            .write_embeddings_csv(embeddings_path.to_str().unwrap())
+            .expect("Failed to write embeddings");
     }
 }
 
@@ -106,6 +139,8 @@ fn main() {
     .expect("Failed to read graph");
 
     let vocab_size = graph.adjacency.keys().max().unwrap() + 1;
+
+    let seed = training_config.seed;
 
     let walks = graph.generate_walks(
         training_config.walks_per_node,
@@ -126,6 +161,7 @@ fn main() {
         training_config,
         train_walks,
         valid_walks,
+        &seed,
     );
 
     #[cfg(any(feature = "ndarray", feature = "ndarray-blas-openblas",))]
@@ -135,6 +171,7 @@ fn main() {
         training_config,
         train_walks,
         valid_walks,
+        &seed,
     );
 
     #[cfg(any(feature = "wgpu", feature = "metal", feature = "vulkan"))]
@@ -144,5 +181,6 @@ fn main() {
         training_config,
         train_walks,
         valid_walks,
+        &seed,
     );
 }
