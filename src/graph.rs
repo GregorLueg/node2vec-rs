@@ -86,6 +86,16 @@ pub struct Node2VecGraph {
 }
 
 impl Node2VecGraph {
+    /// Generates random walks from the graph
+    ///
+    /// ### Params
+    /// * `walks_per_node` - Number of walks to generate starting from each node
+    /// * `walk_length` - Length of each walk
+    /// * `seed` - Random seed for reproducibility
+    ///
+    /// ### Returns
+    ///
+    /// Vector of walks, where each walk is a sequence of node IDs
     pub fn generate_walks(
         &self,
         walks_per_node: usize,
@@ -109,6 +119,17 @@ impl Node2VecGraph {
             .collect()
     }
 
+    /// Performs a single biased random walk
+    ///
+    /// ### Params
+    ///
+    /// * `start_node` - Node to start the walk from
+    /// * `walk_length` - Maximum length of the walk
+    /// * `rng` - Random number generator
+    ///
+    /// ### Returns
+    ///
+    /// The vector of node IDs for this walk
     fn single_walk(&self, start_node: u32, walk_length: usize, rng: &mut StdRng) -> Vec<u32> {
         let mut walk: Vec<u32> = Vec::with_capacity(walk_length);
         walk.push(start_node);
@@ -122,6 +143,8 @@ impl Node2VecGraph {
         } else {
             return walk;
         };
+
+        walk.push(curr);
 
         for _ in 2..walk_length {
             let prev = walk[walk.len() - 2];
@@ -137,6 +160,16 @@ impl Node2VecGraph {
         walk
     }
 
+    /// Samples a neighbour based on edge weights
+    ///
+    /// ### Params
+    ///
+    /// * `neighbours` - Slice of (node, weight) tuples
+    /// * `rng` - Random number generator
+    ///
+    /// ### Returns
+    ///
+    /// Node ID based on the neighbours
     fn sample_neighbor(&self, neighbours: &[(u32, f32)], rng: &mut impl Rng) -> u32 {
         let total: f32 = neighbours.iter().map(|(_, w)| w).sum();
         let mut rand_val = rng.random::<f32>() * total;
@@ -151,6 +184,17 @@ impl Node2VecGraph {
         neighbours[0].0
     }
 
+    /// Samples from a cumulative probability distribution
+    ///
+    /// ### Params
+    ///
+    /// * `cumulative` - Cumulative probabilities as (node, cumulative_prob)
+    ///   pairs
+    /// * `rng` - Random number generator
+    ///
+    /// ### Returns
+    ///
+    /// The node ID
     fn sample_from_cumulative(&self, cumulative: &[(u32, f32)], rng: &mut impl Rng) -> u32 {
         let rand_val = rng.random::<f32>();
 
