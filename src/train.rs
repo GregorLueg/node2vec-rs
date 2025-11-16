@@ -1,11 +1,10 @@
 use burn::config::Config;
 use burn::data::dataloader::DataLoaderBuilder;
 use burn::module::AutodiffModule;
-use burn::optim::Optimizer;
-use burn::optim::{AdamConfig, GradientsParams};
-use burn::prelude::ElementConversion;
-use burn::tensor::backend::AutodiffBackend;
-use burn::tensor::{Int, Tensor, TensorData, backend::Backend};
+use burn::optim::{AdamConfig, GradientsParams, Optimizer};
+use burn::prelude::{ElementConversion, Module};
+use burn::record::CompactRecorder;
+use burn::tensor::{backend::AutodiffBackend, backend::Backend, Int, Tensor, TensorData};
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle};
 use rand::Rng;
@@ -14,6 +13,34 @@ use crate::batch::*;
 use crate::dataset::*;
 use crate::model::*;
 
+/// CLI arguments
+///
+/// ### Fields
+///
+/// * `input` - The input CSV. Needs to be provided.
+/// * `output` - Where to store the outputs. Defaults to `"/tmp/node2vec"`.
+/// * `directed` - Shall the graph be treated as a directed graph. Defaults
+///   to `false`.
+/// * `embedding_dim` - Size of the embedding to create. Defaults to `16`.
+/// * `split` - How much of the data should be in the trainings data vs.
+///   validation data. Defaults to `0.9`.
+/// * `walks_per_node` - Number of random walks to do per node. Defaults to
+///   `20`.
+/// * `walk_length` - Length of the random walks. Defaults to `20`.
+/// * `window_size` - Window size parameter for the skipgram model. Defaults to
+///   `2`.
+/// * `batch_size` - Batch size during training. Defaults to `256`.
+/// * `num_workers` - Number of workers to use during the generation of the
+///   batches. Defaults to `4`.
+/// * `num_epochs` - Number of epochs to train the model for. Defaults to `5`.
+/// * `num_negatives` - Number of negative examples to sample. Defaults to `5`.
+/// * `seed` - Seed for reproducibility. Defaults to `42`.
+/// * `learning_rate` - Learning rate for the Adam optimiser. Defaults to
+///   `1-e3`.
+/// * `p` - p parameter for the node2vec random walks and controls the
+///   probability to return to origin node. Defaults to `1.0`.
+/// * `q` - q parameter for node2vec random walks and controls the probability
+///   to venture on a different node from the origin node. Defaults to `1.0`.
 #[derive(Parser)]
 #[command(name = "node2vec")]
 #[command(about = "Node2Vec implementation using Burn", long_about = None)]
@@ -27,7 +54,7 @@ pub struct Args {
     #[arg(short, long, default_value_t = false)]
     pub directed: bool,
 
-    #[arg(short, long, default_value_t = 32)]
+    #[arg(short, long, default_value_t = 16)]
     pub embedding_dim: usize,
 
     #[arg(short, long, default_value_t = 0.9)]
@@ -188,7 +215,7 @@ pub fn train<B: AutodiffBackend>(
     train_walks: Vec<Vec<u32>>,
     valid_walks: Vec<Vec<u32>>,
     device: B::Device,
-) {
+) -> SkipGramModel<B> {
     let mut model = model_config.init::<B>(&device);
     let mut optim = AdamConfig::new().init();
     let batcher = SkipGramBatcher::new(training_config.window_size);
@@ -265,7 +292,7 @@ pub fn train<B: AutodiffBackend>(
         let valid_bar = ProgressBar::new(valid_batches as u64);
         valid_bar.set_style(
             ProgressStyle::default_bar()
-                .template("[Validation] {bar:40.magenta/blue} {pos}/{len} batches")
+                .template("[Validation] {bar:40.magenta/blue} {pos}/{len} batches | {msg}")
                 .unwrap()
                 .progress_chars("=>-"),
         );
@@ -289,12 +316,21 @@ pub fn train<B: AutodiffBackend>(
             valid_bar.inc(1);
         }
 
-        valid_bar.finish_with_message(format!("Avg Loss: {:.6}", total_loss / num_batches as f64));
-        println!("Epoch {}: Validation complete", epoch);
+        valid_bar.finish_with_message(format!(
+            "Avg. Validation Loss: {:.6}",
+            total_loss / num_batches as f64
+        ));
+        println!("--- Epoch done ---");
         epoch_bar.inc(1);
     }
 
     epoch_bar.finish_with_message("Training complete");
 
     std::fs::create_dir_all(artifact_dir).ok();
+    model
+        .clone()
+        .save_file(format!("{artifact_dir}/model"), &CompactRecorder::new())
+        .expect("Failed to save model");
+
+    model
 }

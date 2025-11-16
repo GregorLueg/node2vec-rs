@@ -38,7 +38,7 @@ pub fn read_graph(
         let to: u32 = record[1]
             .parse()
             .map_err(|_| format!("Cannot cast 'to' to u32: {}", &record[1]))?;
-        let weight: f32 = record[2].parse().unwrap_or(1.0);
+        let weight: f32 = record.get(2).and_then(|s| s.parse().ok()).unwrap_or(1.0);
 
         adjacency
             .entry(from)

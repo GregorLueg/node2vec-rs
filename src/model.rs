@@ -1,8 +1,9 @@
 use burn::config::Config;
 use burn::module::Module;
 use burn::nn::{Embedding, EmbeddingConfig};
-use burn::tensor::activation;
-use burn::tensor::{Int, Tensor, backend::Backend};
+use burn::tensor::{activation, backend::Backend, Int, Tensor};
+use std::fs::File;
+use std::io::Write;
 
 /// SkipGram model for word embeddings.
 ///
@@ -105,12 +106,47 @@ impl<B: Backend> SkipGramModel<B> {
         pos_loss + neg_loss
     }
 
-    /// Returns a reference to the target embeddings.
+    /// Extract the embeddings as a vector
     ///
     /// ### Returns
     ///
-    /// Reference to the internal embedding
-    pub fn embeddings(&self) -> &Embedding<B> {
-        &self.target_embd
+    /// A Vec<Vec<f32>> of the embeddings.
+    pub fn embeddings_to_vec(&self) -> Vec<Vec<f32>> {
+        let weights = self.target_embd.weight.clone();
+        let data = weights.to_data();
+        let values: Vec<f32> = data.to_vec().unwrap();
+
+        let vocab_size = self.vocab_size;
+        let embedding_dim = values.len() / vocab_size;
+
+        values
+            .chunks(embedding_dim)
+            .map(|chunk| chunk.to_vec())
+            .collect()
+    }
+
+    /// Write the embeddings to a CSV
+    ///
+    /// ### Params
+    ///
+    /// * `path` - Path to the CSV.
+    ///
+    /// ### Returns
+    ///
+    /// Writes the data to disk in form of a CSV.
+    pub fn write_embeddings_csv(&self, path: &str) -> std::io::Result<()> {
+        let embeddings = self.embeddings_to_vec();
+        let mut file = File::create(path)?;
+
+        for row in embeddings {
+            let line = row
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<_>>()
+                .join(",");
+            writeln!(file, "{}", line)?;
+        }
+
+        Ok(())
     }
 }
