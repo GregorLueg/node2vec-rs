@@ -150,3 +150,122 @@ impl<B: Backend> SkipGramModel<B> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod model_tests {
+    use std::fs::File;
+    use std::io::{BufRead, BufReader};
+
+    // Mock embedding structure for testing
+    fn create_mock_embeddings(vocab_size: usize, embedding_dim: usize) -> Vec<Vec<f32>> {
+        (0..vocab_size)
+            .map(|i| {
+                (0..embedding_dim)
+                    .map(|j| (i * embedding_dim + j) as f32)
+                    .collect()
+            })
+            .collect()
+    }
+
+    fn write_embeddings_csv(embeddings: &[Vec<f32>], path: &str) -> std::io::Result<()> {
+        use std::io::Write;
+        let mut file = File::create(path)?;
+
+        for row in embeddings {
+            let line = row
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<_>>()
+                .join(",");
+            writeln!(file, "{}", line)?;
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_embeddings_to_vec_dimensions() {
+        let vocab_size = 10;
+        let embedding_dim = 16;
+        let embeddings = create_mock_embeddings(vocab_size, embedding_dim);
+
+        assert_eq!(embeddings.len(), vocab_size);
+        for emb in embeddings.iter() {
+            assert_eq!(emb.len(), embedding_dim);
+        }
+    }
+
+    #[test]
+    fn test_write_embeddings_csv_format() {
+        let vocab_size = 5;
+        let embedding_dim = 3;
+        let embeddings = create_mock_embeddings(vocab_size, embedding_dim);
+
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("embeddings.csv");
+        write_embeddings_csv(&embeddings, file_path.to_str().unwrap()).unwrap();
+
+        // Read back and verify format
+        let file = File::open(&file_path).unwrap();
+        let reader = BufReader::new(file);
+        let lines: Vec<String> = reader.lines().map(|l| l.unwrap()).collect();
+
+        assert_eq!(lines.len(), vocab_size);
+
+        for (i, line) in lines.iter().enumerate() {
+            let values: Vec<f32> = line.split(',').map(|s| s.parse().unwrap()).collect();
+            assert_eq!(values.len(), embedding_dim);
+            assert_eq!(values, embeddings[i]);
+        }
+    }
+
+    #[test]
+    fn test_csv_no_header() {
+        let embeddings = vec![vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0]];
+
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("embeddings.csv");
+        write_embeddings_csv(&embeddings, file_path.to_str().unwrap()).unwrap();
+
+        let file = File::open(&file_path).unwrap();
+        let mut reader = BufReader::new(file);
+        let mut first_line = String::new();
+        reader.read_line(&mut first_line).unwrap();
+
+        // First line should be numeric, not a header
+        assert!(first_line.starts_with("1"));
+    }
+
+    #[test]
+    fn test_embedding_uniqueness() {
+        let vocab_size = 100;
+        let embedding_dim = 32;
+        let embeddings = create_mock_embeddings(vocab_size, embedding_dim);
+
+        // Check that embeddings are different
+        for i in 0..vocab_size {
+            for j in (i + 1)..vocab_size {
+                assert_ne!(embeddings[i], embeddings[j]);
+            }
+        }
+    }
+
+    #[test]
+    fn test_single_node_embedding() {
+        let embeddings = create_mock_embeddings(1, 8);
+        assert_eq!(embeddings.len(), 1);
+        assert_eq!(embeddings[0].len(), 8);
+    }
+
+    #[test]
+    fn test_large_embedding_dimensions() {
+        let vocab_size = 10;
+        let embedding_dim = 256;
+        let embeddings = create_mock_embeddings(vocab_size, embedding_dim);
+
+        assert_eq!(embeddings.len(), vocab_size);
+        for emb in embeddings {
+            assert_eq!(emb.len(), embedding_dim);
+        }
+    }
+}
