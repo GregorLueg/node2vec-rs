@@ -30,7 +30,7 @@ from,to,weight
 2,3,0.5
 ```
 
-You can find a Barabasi-based graph in `test/data/test_graph.csv`.
+You can find a Barabasi-based graph in `tests/data/test_graph.csv`.
 
 ### Command-line Arguments
 
@@ -57,23 +57,23 @@ You can find a Barabasi-based graph in `test/data/test_graph.csv`.
 
 Train with karate data set
 ```bash
-cargo run --release -- --input test/data/karate.csv
+cargo run --release -- --input tests/data/karate.csv
 ```
 
 If you want to use a different back-end you have these options:
 ```bash
 # runs the code on the WGPU backend
-cargo run --release --no-default-features --features wgpu -- --input test/data/karate.csv
+cargo run --release --no-default-features --features wgpu -- --input tests/data/karate.csv
 ```
 
 ```bash
 # runs the code on the ndarray backend
-cargo run --release --no-default-features --features ndarray -- --input test/data/karate.csv
+cargo run --release --no-default-features --features ndarray -- --input tests/data/karate.csv
 ```
 
 Train on a directed graph with custom node2vec parameters:
 ```bash
-cargo run --release -- --input test/data/test_graph.csv --directed --p 0.5 --q 2.0
+cargo run --release -- --input tests/data/test_graph.csv --directed --p 0.5 --q 2.0
 ```
 
 Full customisation:

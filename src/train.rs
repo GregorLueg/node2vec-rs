@@ -106,7 +106,7 @@ pub struct Args {
 /// ### Returns
 ///
 /// Tensor of negative examples
-fn sample_negatives<B: Backend>(
+pub fn sample_negatives<B: Backend>(
     batch_size: usize,
     vocab_size: usize,
     num_neg: usize,
@@ -266,6 +266,7 @@ pub fn train<B: AutodiffBackend>(
                 training_config.num_negatives,
                 &batch.contexts.device(),
             );
+
             let loss = model
                 .forward(batch.contexts, batch.targets, negatives)
                 .mean();
