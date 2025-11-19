@@ -17,8 +17,8 @@ use std::io::Write;
 /// * `vocab_size` - The vocabulary size, i.e., number of nodes in node2vec
 #[derive(Module, Debug)]
 pub struct SkipGramModel<B: Backend> {
-    target_embd: Embedding<B>,
-    context_embd: Embedding<B>,
+    pub target_embd: Embedding<B>,
+    pub context_embd: Embedding<B>,
     pub vocab_size: usize,
 }
 
@@ -45,9 +45,17 @@ impl SkipGramConfig {
     ///
     /// Initialised model
     pub fn init<B: Backend>(&self, device: &B::Device) -> SkipGramModel<B> {
+        let target_embd = EmbeddingConfig::new(self.vocab_size, self.embedding_dim).init(device);
+        let context_embd = EmbeddingConfig::new(self.vocab_size, self.embedding_dim).init(device);
+
+        // Force allocation on device without moving data off
+        let dummy_idx = Tensor::<B, 2, Int>::zeros([1, 1], device);
+        let _ = target_embd.forward(dummy_idx.clone());
+        let _ = context_embd.forward(dummy_idx);
+
         SkipGramModel {
-            target_embd: EmbeddingConfig::new(self.vocab_size, self.embedding_dim).init(device),
-            context_embd: EmbeddingConfig::new(self.vocab_size, self.embedding_dim).init(device),
+            target_embd,
+            context_embd,
             vocab_size: self.vocab_size,
         }
     }

@@ -30,14 +30,14 @@ from,to,weight
 2,3,0.5
 ```
 
-You can find a Barabasi-based graph in `test/data/test_graph.csv`.
+You can find a Barabasi-based graph in `tests/data/test_graph.csv`.
 
 ### Command-line Arguments
 
 | Argument | Short | Default | Description |
 |----------|-------|---------|-------------|
 | `--input` | `-i` | *required* | Input graph file path |
-| `--output` | `-o` | `/tmp/node2vec` | Output directory for model artefacts |
+| `--output` | `-o` | `/tmp/node2vec` | Output directory for model artefacts. The embeddings will saved into there as CSV |
 | `--directed` | `-d` | `false` | Whether the graph is directed |
 | `--embedding-dim` | `-e` | `32` | Embedding dimension |
 | `--split` | `-s` | `0.9` | Training split ratio |
@@ -56,27 +56,46 @@ You can find a Barabasi-based graph in `test/data/test_graph.csv`.
 ### Examples
 
 Train with karate data set
+
 ```bash
-cargo run --release -- --input test/data/karate.csv
+cargo run --release -- --input tests/data/karate.csv
 ```
 
 If you want to use a different back-end you have these options:
+
 ```bash
 # runs the code on the WGPU backend
-cargo run --release --no-default-features --features wgpu -- --input test/data/karate.csv
+cargo run --release --no-default-features --features wgpu -- --input tests/data/karate.csv
 ```
 
 ```bash
 # runs the code on the ndarray backend
-cargo run --release --no-default-features --features ndarray -- --input test/data/karate.csv
+cargo run --release --no-default-features --features ndarray -- --input tests/data/karate.csv
 ```
 
-Train on a directed graph with custom node2vec parameters:
+There are also the versions using OpenBLAS or Apple's Accelerate BLAS framework.
+These are called via:
+
 ```bash
-cargo run --release -- --input test/data/test_graph.csv --directed --p 0.5 --q 2.0
+# runs the code on the ndarray backend with openblas
+cargo run --release --no-default-features --features ndarray-blas-openblas -- --input tests/data/karate.csv
+```
+
+```bash
+# runs the code on the ndarray backend with accelerate
+cargo run --release --no-default-features --features ndarray-blas-accelerate -- --input tests/data/karate.csv
+```
+
+In the future, `cuda`, `tch-mps` and `tch-gpu` will be added. 
+
+Train on a directed graph with custom node2vec parameters:
+
+```bash
+cargo run --release -- --input tests/data/test_graph.csv --directed --p 0.5 --q 2.0
 ```
 
 Full customisation:
+
 ```bash
 cargo run --release -- \
   --input data/network.csv \

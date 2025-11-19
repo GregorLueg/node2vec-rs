@@ -87,7 +87,11 @@ mod wgpu {
     }
 }
 
-#[cfg(any(feature = "ndarray", feature = "ndarray-blas-openblas",))]
+#[cfg(any(
+    feature = "ndarray",
+    feature = "ndarray-blas-openblas",
+    feature = "ndarray-blas-accelerate"
+))]
 mod ndarray {
     use super::{train, SkipGramConfig};
     use burn::backend::{
@@ -164,7 +168,11 @@ fn main() {
         &seed,
     );
 
-    #[cfg(any(feature = "ndarray", feature = "ndarray-blas-openblas",))]
+    #[cfg(any(
+        feature = "ndarray",
+        feature = "ndarray-blas-openblas",
+        feature = "ndarray-blas-accelerate"
+    ))]
     ndarray::run(
         &args.output,
         model_config,
