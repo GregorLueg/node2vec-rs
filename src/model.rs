@@ -47,8 +47,22 @@ impl SkipGramConfig {
     ///
     /// Initialised model
     pub fn init<B: Backend>(&self, device: &B::Device) -> SkipGramModel<B> {
-        let target_embd = EmbeddingConfig::new(self.vocab_size, self.embedding_dim).init(device);
-        let context_embd = EmbeddingConfig::new(self.vocab_size, self.embedding_dim).init(device);
+        // Scale initialisation to prevent sigmoid saturation
+        // With scale 1/sqrt(embedding_dim), expected dot product magnitude is O(1)
+        let init_scale = 1.0 / (self.embedding_dim as f64).sqrt();
+
+        let target_embd = EmbeddingConfig::new(self.vocab_size, self.embedding_dim)
+            .with_initializer(burn::nn::Initializer::Uniform {
+                min: -init_scale,
+                max: init_scale,
+            })
+            .init(device);
+        let context_embd = EmbeddingConfig::new(self.vocab_size, self.embedding_dim)
+            .with_initializer(burn::nn::Initializer::Uniform {
+                min: -init_scale,
+                max: init_scale,
+            })
+            .init(device);
 
         // Force allocation on device without moving data off
         let dummy_idx = Tensor::<B, 2, Int>::zeros([1, 1], device);
@@ -127,7 +141,36 @@ impl<B: Backend> SkipGramModel<B> {
     ///
     /// A Vec<Vec<f32>> of the embeddings, indexed by node ID.
     pub fn embeddings_to_vec(&self) -> Vec<Vec<f32>> {
-        let device = self.target_embd.weight.device();
+        self.extract_embeddings(&self.target_embd)
+    }
+
+    /// Extract combined embeddings (average of target and context)
+    ///
+    /// This often gives better results as it uses information from both
+    /// embedding matrices.
+    ///
+    /// ### Returns
+    ///
+    /// A Vec<Vec<f32>> of the combined embeddings, indexed by node ID.
+    pub fn combined_embeddings_to_vec(&self) -> Vec<Vec<f32>> {
+        let target = self.extract_embeddings(&self.target_embd);
+        let context = self.extract_embeddings(&self.context_embd);
+
+        target
+            .into_iter()
+            .zip(context)
+            .map(|(t, c)| {
+                t.into_iter()
+                    .zip(c)
+                    .map(|(tv, cv)| (tv + cv) / 2.0)
+                    .collect()
+            })
+            .collect()
+    }
+
+    /// Internal helper to extract embeddings from an embedding layer
+    fn extract_embeddings(&self, embd: &Embedding<B>) -> Vec<Vec<f32>> {
+        let device = embd.weight.device();
         let vocab_size = self.vocab_size;
         let embedding_dim = self.embedding_dim;
 
@@ -140,7 +183,7 @@ impl<B: Backend> SkipGramModel<B> {
 
         // Get all embeddings via forward pass - this guarantees correct ordering
         // Shape: [vocab_size, 1, embedding_dim]
-        let all_emb = self.target_embd.forward(idx_tensor);
+        let all_emb = embd.forward(idx_tensor);
 
         // Reshape to [vocab_size, embedding_dim]
         let all_emb_2d: Tensor<B, 2> = all_emb.reshape([vocab_size, embedding_dim]);

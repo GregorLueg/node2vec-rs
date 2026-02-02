@@ -123,10 +123,10 @@ fn test_karate_community_structure() {
     let training_config = TrainingConfig {
         walks_per_node: 10,
         walk_length: 80,
-        window_size: 5,
+        window_size: 3,
         batch_size: 128,
         num_workers: 1,
-        num_epochs: 5,
+        num_epochs: 15,
         num_negatives: 5,
         seed: 42,
         learning_rate: 1e-2,
