@@ -4,16 +4,16 @@ use burn::data::dataloader::batcher::Batcher;
 use burn::prelude::*;
 use burn::tensor::{Int, TensorData};
 
-/// Batch structure for skip-gram training containing context-target pairs
+/// Batch structure for skip-gram training containing center-context pairs
 ///
 /// ### Fields
 ///
-/// * `contexts` - The context tokens
-/// * `targets` - The target tokens
+/// * `centers` - The center word tokens (what we embed)
+/// * `contexts` - The context word tokens (what we predict)
 #[derive(Clone, Debug)]
 pub struct SkipGramBatch<B: Backend> {
+    pub centers: Tensor<B, 1, Int>,
     pub contexts: Tensor<B, 1, Int>,
-    pub targets: Tensor<B, 1, Int>,
 }
 
 /// Batcher that converts random walks into skip-gram training pairs
@@ -52,33 +52,33 @@ impl<B: Backend> Batcher<B, Vec<u32>, SkipGramBatch<B>> for SkipGramBatcher {
     ///
     /// ### Return
     ///
-    /// The `SkipGramBatch` with contexts and targets.
+    /// The `SkipGramBatch` with centers and contexts.
     fn batch(&self, items: Vec<Vec<u32>>, device: &B::Device) -> SkipGramBatch<B> {
         let capacity = items.iter().map(|w| w.len() * self.window_size * 2).sum();
+        let mut centers = Vec::with_capacity(capacity);
         let mut contexts = Vec::with_capacity(capacity);
-        let mut targets = Vec::with_capacity(capacity);
 
         for walk in items {
             for (center_idx, &center_node) in walk.iter().enumerate() {
                 let start = center_idx.saturating_sub(self.window_size);
                 let end = (center_idx + self.window_size + 1).min(walk.len());
 
-                for target_idx in start..end {
-                    if target_idx != center_idx {
-                        contexts.push(center_node as i64);
-                        targets.push(walk[target_idx] as i64);
+                for context_idx in start..end {
+                    if context_idx != center_idx {
+                        centers.push(center_node as i64);
+                        contexts.push(walk[context_idx] as i64);
                     }
                 }
             }
         }
 
-        let n = contexts.len();
+        let n = centers.len();
+        let centers_data = TensorData::new(centers, [n]).convert::<B::IntElem>();
         let contexts_data = TensorData::new(contexts, [n]).convert::<B::IntElem>();
-        let targets_data = TensorData::new(targets, [n]).convert::<B::IntElem>();
 
         SkipGramBatch {
+            centers: Tensor::from_data(centers_data, device),
             contexts: Tensor::from_data(contexts_data, device),
-            targets: Tensor::from_data(targets_data, device),
         }
     }
 }

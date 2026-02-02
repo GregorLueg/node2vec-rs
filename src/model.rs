@@ -1,7 +1,7 @@
 use burn::config::Config;
 use burn::module::Module;
 use burn::nn::{Embedding, EmbeddingConfig};
-use burn::tensor::{activation, backend::Backend, Int, Tensor};
+use burn::tensor::{activation, backend::Backend, Int, Tensor, TensorData};
 use std::fs::File;
 use std::io::Write;
 
@@ -15,11 +15,13 @@ use std::io::Write;
 /// * `target_embd` - The target embedding
 /// * `context_embd` - The context embedding
 /// * `vocab_size` - The vocabulary size, i.e., number of nodes in node2vec
+/// * `embedding_dim` - The embedding dimension
 #[derive(Module, Debug)]
 pub struct SkipGramModel<B: Backend> {
     pub target_embd: Embedding<B>,
     pub context_embd: Embedding<B>,
     pub vocab_size: usize,
+    pub embedding_dim: usize,
 }
 
 /// Config for the SkipGram model
@@ -57,6 +59,7 @@ impl SkipGramConfig {
             target_embd,
             context_embd,
             vocab_size: self.vocab_size,
+            embedding_dim: self.embedding_dim,
         }
     }
 }
@@ -66,7 +69,7 @@ impl<B: Backend> SkipGramModel<B> {
     ///
     /// ### Params
     ///
-    /// * `targets` - Target word indices [batch_size]
+    /// * `centers` - Center word indices [batch_size]
     /// * `contexts` - Context word indices [batch_size]
     /// * `negatives` - Negative sample indices [batch_size, num_negatives]
     ///
@@ -75,33 +78,33 @@ impl<B: Backend> SkipGramModel<B> {
     /// Loss tensor [batch_size]
     pub fn forward(
         &self,
-        targets: Tensor<B, 1, Int>,
+        centers: Tensor<B, 1, Int>,
         contexts: Tensor<B, 1, Int>,
         negatives: Tensor<B, 2, Int>,
     ) -> Tensor<B, 1> {
-        let targets_2d: Tensor<B, 2, Int> = targets.clone().unsqueeze_dim(1);
+        let centers_2d: Tensor<B, 2, Int> = centers.clone().unsqueeze_dim(1);
         let contexts_2d: Tensor<B, 2, Int> = contexts.unsqueeze_dim(1);
 
-        let batch_size = targets.dims()[0];
+        let batch_size = centers.dims()[0];
         let num_neg = negatives.dims()[1];
 
         // [batch_size, 1, embedding_dim] -> [batch_size, embedding_dim]
-        let target_embed_3d = self.target_embd.forward(targets_2d);
-        let embedding_dim = target_embed_3d.dims()[2];
-        let target_embed: Tensor<B, 2> = target_embed_3d.reshape([batch_size, embedding_dim]);
+        let center_embed_3d = self.target_embd.forward(centers_2d);
+        let embedding_dim = center_embed_3d.dims()[2];
+        let center_embed: Tensor<B, 2> = center_embed_3d.reshape([batch_size, embedding_dim]);
 
         let context_embed_3d = self.context_embd.forward(contexts_2d);
         let context_embed: Tensor<B, 2> = context_embed_3d.reshape([batch_size, embedding_dim]);
 
         // [batch_size, embedding_dim] -> sum_dim(1) -> [batch_size, 1] -> reshape -> [batch_size]
-        let pos_dot_2d: Tensor<B, 2> = (target_embed.clone() * context_embed).sum_dim(1);
+        let pos_dot_2d: Tensor<B, 2> = (center_embed.clone() * context_embed).sum_dim(1);
         let pos_dot: Tensor<B, 1> = pos_dot_2d.reshape([batch_size]);
 
         let neg_embed: Tensor<B, 3> = self.context_embd.forward(negatives);
-        let target_expanded: Tensor<B, 3> = target_embed.unsqueeze_dim(1);
+        let center_expanded: Tensor<B, 3> = center_embed.unsqueeze_dim(1);
 
         // [batch_size, num_neg, embedding_dim] -> sum_dim(2) -> [batch_size, num_neg]
-        let neg_dot: Tensor<B, 2> = (target_expanded * neg_embed)
+        let neg_dot: Tensor<B, 2> = (center_expanded * neg_embed)
             .sum_dim(2)
             .reshape([batch_size, num_neg]);
 
@@ -116,21 +119,44 @@ impl<B: Backend> SkipGramModel<B> {
 
     /// Extract the embeddings as a vector
     ///
+    /// The returned vector is indexed by node ID, so embeddings[n] contains
+    /// the embedding for node n. This works for both 0-indexed and 1-indexed
+    /// graphs (for 1-indexed graphs, embeddings[0] will be untrained).
+    ///
     /// ### Returns
     ///
-    /// A Vec<Vec<f32>> of the embeddings.
+    /// A Vec<Vec<f32>> of the embeddings, indexed by node ID.
     pub fn embeddings_to_vec(&self) -> Vec<Vec<f32>> {
-        let weights = self.target_embd.weight.clone();
-        let data = weights.to_data();
-        let values: Vec<f32> = data.to_vec().unwrap();
-
+        let device = self.target_embd.weight.device();
         let vocab_size = self.vocab_size;
-        let embedding_dim = values.len() / vocab_size;
+        let embedding_dim = self.embedding_dim;
 
-        values
-            .chunks(embedding_dim)
-            .map(|chunk| chunk.to_vec())
-            .collect()
+        // Create indices for all vocabulary items [0, 1, 2, ..., vocab_size-1]
+        let indices: Vec<i64> = (0..vocab_size as i64).collect();
+        let idx_tensor: Tensor<B, 2, Int> = Tensor::from_data(
+            TensorData::new(indices, [vocab_size, 1]).convert::<B::IntElem>(),
+            &device,
+        );
+
+        // Get all embeddings via forward pass - this guarantees correct ordering
+        // Shape: [vocab_size, 1, embedding_dim]
+        let all_emb = self.target_embd.forward(idx_tensor);
+
+        // Reshape to [vocab_size, embedding_dim]
+        let all_emb_2d: Tensor<B, 2> = all_emb.reshape([vocab_size, embedding_dim]);
+
+        // Extract row by row to guarantee correct ordering
+        let mut result = Vec::with_capacity(vocab_size);
+        for i in 0..vocab_size {
+            // Select row i: narrow on dimension 0
+            let row = all_emb_2d.clone().narrow(0, i, 1);
+            let row_flat: Tensor<B, 1> = row.reshape([embedding_dim]);
+            let data = row_flat.to_data();
+            let vec: Vec<f32> = data.to_vec().unwrap();
+            result.push(vec);
+        }
+
+        result
     }
 
     /// Write the embeddings to a CSV
@@ -150,6 +176,30 @@ impl<B: Backend> SkipGramModel<B> {
             let line = row
                 .iter()
                 .map(|v| v.to_string())
+                .collect::<Vec<_>>()
+                .join(",");
+            writeln!(file, "{}", line)?;
+        }
+
+        Ok(())
+    }
+
+    /// Write the embeddings to a CSV with node IDs as first column
+    ///
+    /// ### Params
+    ///
+    /// * `path` - Path to the CSV.
+    ///
+    /// ### Returns
+    ///
+    /// Writes the data to disk in form of a CSV with node_id as first column.
+    pub fn write_embeddings_csv_with_ids(&self, path: &str) -> std::io::Result<()> {
+        let embeddings = self.embeddings_to_vec();
+        let mut file = File::create(path)?;
+
+        for (node_id, row) in embeddings.iter().enumerate() {
+            let line = std::iter::once(node_id.to_string())
+                .chain(row.iter().map(|v| v.to_string()))
                 .collect::<Vec<_>>()
                 .join(",");
             writeln!(file, "{}", line)?;

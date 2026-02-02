@@ -259,16 +259,16 @@ pub fn train<B: AutodiffBackend>(
         train_bar.set_message(epoch.to_string());
 
         for batch in dataloader_train.iter() {
-            let batch_size = batch.contexts.dims()[0];
+            let batch_size = batch.centers.dims()[0];
             let negatives = sample_negatives(
                 batch_size,
                 model.vocab_size,
                 training_config.num_negatives,
-                &batch.contexts.device(),
+                &batch.centers.device(),
             );
 
             let loss = model
-                .forward(batch.contexts, batch.targets, negatives)
+                .forward(batch.centers, batch.contexts, negatives)
                 .mean();
 
             let loss_scalar: f64 = loss.clone().into_scalar().elem();
@@ -299,15 +299,15 @@ pub fn train<B: AutodiffBackend>(
         );
 
         for batch in dataloader_valid.iter() {
-            let batch_size = batch.contexts.dims()[0];
+            let batch_size = batch.centers.dims()[0];
             let negatives = sample_negatives(
                 batch_size,
                 model_valid.vocab_size,
                 5,
-                &batch.contexts.device(),
+                &batch.centers.device(),
             );
             let loss = model_valid
-                .forward(batch.contexts, batch.targets, negatives)
+                .forward(batch.centers, batch.contexts, negatives)
                 .mean();
 
             let loss_scalar: f64 = loss.into_scalar().elem();
