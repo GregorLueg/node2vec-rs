@@ -152,6 +152,7 @@ impl<B: Backend> SkipGramModel<B> {
     /// ### Returns
     ///
     /// A Vec<Vec<f32>> of the combined embeddings, indexed by node ID.
+    #[allow(dead_code)]
     pub fn combined_embeddings_to_vec(&self) -> Vec<Vec<f32>> {
         let target = self.extract_embeddings(&self.target_embd);
         let context = self.extract_embeddings(&self.context_embd);
@@ -170,36 +171,19 @@ impl<B: Backend> SkipGramModel<B> {
 
     /// Internal helper to extract embeddings from an embedding layer
     fn extract_embeddings(&self, embd: &Embedding<B>) -> Vec<Vec<f32>> {
-        let device = embd.weight.device();
-        let vocab_size = self.vocab_size;
-        let embedding_dim = self.embedding_dim;
+        // Burn's Embedding stores weights as [vocab_size, embedding_dim] row-major
+        let weights = embd.weight.clone();
+        let [vocab_size, embedding_dim] = weights.dims();
 
-        // Create indices for all vocabulary items [0, 1, 2, ..., vocab_size-1]
-        let indices: Vec<i64> = (0..vocab_size as i64).collect();
-        let idx_tensor: Tensor<B, 2, Int> = Tensor::from_data(
-            TensorData::new(indices, [vocab_size, 1]).convert::<B::IntElem>(),
-            &device,
-        );
+        // Single extraction - O(1) tensor operations
+        let data = weights.to_data();
+        let values: Vec<f32> = data.to_vec().unwrap();
 
-        // Get all embeddings via forward pass - this guarantees correct ordering
-        // Shape: [vocab_size, 1, embedding_dim]
-        let all_emb = embd.forward(idx_tensor);
-
-        // Reshape to [vocab_size, embedding_dim]
-        let all_emb_2d: Tensor<B, 2> = all_emb.reshape([vocab_size, embedding_dim]);
-
-        // Extract row by row to guarantee correct ordering
-        let mut result = Vec::with_capacity(vocab_size);
-        for i in 0..vocab_size {
-            // Select row i: narrow on dimension 0
-            let row = all_emb_2d.clone().narrow(0, i, 1);
-            let row_flat: Tensor<B, 1> = row.reshape([embedding_dim]);
-            let data = row_flat.to_data();
-            let vec: Vec<f32> = data.to_vec().unwrap();
-            result.push(vec);
-        }
-
-        result
+        // Chunk into rows - this is pure CPU work, very fast
+        values
+            .chunks(embedding_dim)
+            .map(|chunk| chunk.to_vec())
+            .collect()
     }
 
     /// Write the embeddings to a CSV
@@ -236,6 +220,7 @@ impl<B: Backend> SkipGramModel<B> {
     /// ### Returns
     ///
     /// Writes the data to disk in form of a CSV with node_id as first column.
+    #[allow(dead_code)]
     pub fn write_embeddings_csv_with_ids(&self, path: &str) -> std::io::Result<()> {
         let embeddings = self.embeddings_to_vec();
         let mut file = File::create(path)?;
