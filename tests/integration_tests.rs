@@ -146,7 +146,7 @@ fn test_karate_community_structure() {
         device,
     );
 
-    let embeddings = model.embeddings_to_vec();
+    let embeddings = model.combined_embeddings_to_vec();
 
     // Known Karate club communities
     let faction1: Vec<usize> = vec![1, 2, 3, 4, 5, 6, 7, 8, 11, 12, 13, 14, 17, 18, 20, 22];
