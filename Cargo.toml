@@ -1,6 +1,6 @@
 [package]
 name = "node2vec-rs"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["Gregor Lueg <gregorlueg@me.com>"]
 license = "MIT"
@@ -8,8 +8,11 @@ repository = "https://github.com/GregorLueg/node2vec-rs"
 description = "A node2vec implementation in Rust via the Burn tensor framework."
 
 [dependencies]
-burn = { version = "0.19.1", features = ["dataset", "train"] }
-clap = { version = "4.5.51", features = ["derive"] }
+burn = { version = "0.20.1", features = [
+    "dataset",
+    "train",
+] }
+clap = { version = "4.5.53", features = ["derive"] }
 csv = "1.4.0"
 indicatif = "0.18.3"
 rand = "0.9.2"
@@ -23,6 +26,7 @@ ndarray = ["burn/ndarray"]
 ndarray-blas-openblas = ["burn/ndarray", "burn/openblas"]
 ndarray-blas-accelerate = ["burn/ndarray", "burn/accelerate"]
 tch-cpu = ["burn/tch"]
+tch-mps = ["burn/tch"]
 wgpu = ["burn/wgpu"]
 metal = ["burn/metal"]
 vulkan = ["burn/vulkan"]

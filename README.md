@@ -1,12 +1,17 @@
+[![CI](https://github.com/GregorLueg/node2vec-rs/actions/workflows/test.yml/badge.svg)](https://github.com/GregorLueg/node2vec-rs/actions/workflows/test.yml)
+[![Crates.io](https://img.shields.io/crates/v/node2vec-rs.svg)](https://crates.io/crates/node2vec-rs)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 # node2vec-rs
 
-A Rust implementation of node2vec using the Burn deep learning framework.
+A Rust implementation of node2vec using the Burn deep learning/tensor framework.
 
 ## What is node2vec?
 
-node2vec is an algorithmic framework for learning continuous feature 
-representations for nodes in networks. It uses biased random walks to generate 
-node sequences, which are then used to learn embeddings via a Skip-Gram model.
+[node2vec](https://arxiv.org/abs/1607.00653) is an algorithmic framework for
+learning continuous feature representations for nodes in networks. It uses
+biased random walks to generate node sequences, which are then used to learn
+embeddings via a Skip-Gram model.
 
 ## Usage
 
@@ -18,8 +23,8 @@ cargo run --release -- --input <PATH TO GRAPH CSV>
 ```
 
 In the standard version, this implementation uses the libtorch CPU backend. This
-works well across most OS, but `ndarray` and `wgpu` are also enabled (more to 
-that later).
+works well across most OS, but `ndarray` (with different BLAS support) and
+`wgpu` are also enabled (more to that later).
 
 ### Input Format
 
@@ -37,7 +42,7 @@ You can find a Barabasi-based graph in `tests/data/test_graph.csv`.
 | Argument | Short | Default | Description |
 |----------|-------|---------|-------------|
 | `--input` | `-i` | *required* | Input graph file path |
-| `--output` | `-o` | `/tmp/node2vec` | Output directory for model artefacts. The embeddings will saved into there as CSV |
+| `--output` | `-o` | `/tmp/node2vec` | Output directory for model artefacts and final embeddings |
 | `--directed` | `-d` | `false` | Whether the graph is directed |
 | `--embedding-dim` | `-e` | `32` | Embedding dimension |
 | `--split` | `-s` | `0.9` | Training split ratio |
@@ -55,7 +60,7 @@ You can find a Barabasi-based graph in `tests/data/test_graph.csv`.
 
 ### Examples
 
-Train with karate data set
+Train with karate data set (can be found in the repo)
 
 ```bash
 cargo run --release -- --input tests/data/karate.csv
@@ -73,20 +78,25 @@ cargo run --release --no-default-features --features wgpu -- --input tests/data/
 cargo run --release --no-default-features --features ndarray -- --input tests/data/karate.csv
 ```
 
-There are also the versions using OpenBLAS or Apple's Accelerate BLAS framework.
-These are called via:
+To use a specific BLAS library, you can use for example
 
 ```bash
-# runs the code on the ndarray backend with openblas
-cargo run --release --no-default-features --features ndarray-blas-openblas -- --input tests/data/karate.csv
-```
-
-```bash
-# runs the code on the ndarray backend with accelerate
+# runs the code on the ndarray with Apple's accelerate
 cargo run --release --no-default-features --features ndarray-blas-accelerate -- --input tests/data/karate.csv
 ```
 
-In the future, `cuda`, `tch-mps` and `tch-gpu` will be added. 
+```bash
+# runs the code on the ndarray with OpenBLAS
+cargo run --release --no-default-features --features ndarray-blas-openblas -- --input tests/data/karate.csv
+```
+
+[Thanks to the Burn team](https://github.com/tracel-ai/burn/issues/4038#issuecomment-3583903376),
+the tch-mps backend is also available now via:
+
+```bash
+# runs the code on the libtorch mps backend
+cargo run --release --no-default-features --features tch-mps -- --input tests/data/karate.csv
+```
 
 Train on a directed graph with custom node2vec parameters:
 
@@ -112,9 +122,9 @@ cargo run --release -- \
 
 The `p` and `q` parameters control the random walk behaviour:
 
-- **p**: Controls the likelihood of returning to the previous node. Higher 
+- **p**: Controls the likelihood of returning to the previous node. Higher
   values make walks less likely to revisit nodes.
-- **q**: Controls the likelihood of exploring new parts of the graph. Values 
+- **q**: Controls the likelihood of exploring new parts of the graph. Values
   < 1 encourage exploration (BFS-like), values > 1 encourage local search (DFS-like).
 
 ## Licence
