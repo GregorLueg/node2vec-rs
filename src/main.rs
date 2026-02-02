@@ -49,6 +49,44 @@ mod tch_cpu {
     }
 }
 
+#[cfg(feature = "tch-mps")]
+mod tch_mps {
+    use super::{train, SkipGramConfig};
+    use burn::backend::{
+        libtorch::{LibTorch, LibTorchDevice},
+        Autodiff,
+    };
+
+    pub fn run(
+        output: &str,
+        model_config: SkipGramConfig,
+        training_config: super::TrainingConfig,
+        train_walks: Vec<Vec<u32>>,
+        valid_walks: Vec<Vec<u32>>,
+        seed: &u64,
+    ) {
+        use burn::prelude::Backend;
+
+        let device = LibTorchDevice::Mps;
+
+        LibTorch::<f32>::seed(&device, *seed);
+
+        let model = train::<Autodiff<LibTorch>>(
+            output,
+            model_config,
+            training_config,
+            train_walks,
+            valid_walks,
+            device,
+        );
+
+        let embeddings_path = std::path::Path::new(output).join("embeddings.csv");
+        model
+            .write_embeddings_csv(embeddings_path.to_str().unwrap())
+            .expect("Failed to write embeddings");
+    }
+}
+
 #[cfg(any(feature = "wgpu", feature = "metal", feature = "vulkan"))]
 mod wgpu {
     use super::{train, SkipGramConfig};
@@ -160,6 +198,16 @@ fn main() {
 
     #[cfg(feature = "tch-cpu")]
     tch_cpu::run(
+        &args.output,
+        model_config,
+        training_config,
+        train_walks,
+        valid_walks,
+        &seed,
+    );
+
+    #[cfg(feature = "tch-mps")]
+    tch_mps::run(
         &args.output,
         model_config,
         training_config,
