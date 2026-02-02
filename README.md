@@ -1,12 +1,16 @@
+[![CI](https://github.com/GregorLueg/node2vec-rs/actions/workflows/test.yml/badge.svg)](https://github.com/GregorLueg/node2vec-rs/actions/workflows/test.yml)
+[![Crates.io](https://img.shields.io/crates/v/node2vec-rs.svg)](https://crates.io/crates/node2vec-rs)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 # node2vec-rs
 
 A Rust implementation of node2vec using the Burn deep learning/tensor framework.
 
 ## What is node2vec?
 
-[node2vec](https://arxiv.org/abs/1607.00653) is an algorithmic framework for 
-learning continuous feature representations for nodes in networks. It uses 
-biased random walks to generate node sequences, which are then used to learn 
+[node2vec](https://arxiv.org/abs/1607.00653) is an algorithmic framework for
+learning continuous feature representations for nodes in networks. It uses
+biased random walks to generate node sequences, which are then used to learn
 embeddings via a Skip-Gram model.
 
 ## Usage
@@ -19,7 +23,7 @@ cargo run --release -- --input <PATH TO GRAPH CSV>
 ```
 
 In the standard version, this implementation uses the libtorch CPU backend. This
-works well across most OS, but `ndarray` (with different BLAS support) and 
+works well across most OS, but `ndarray` (with different BLAS support) and
 `wgpu` are also enabled (more to that later).
 
 ### Input Format
@@ -86,7 +90,7 @@ cargo run --release --no-default-features --features ndarray-blas-accelerate -- 
 cargo run --release --no-default-features --features ndarray-blas-openblas -- --input tests/data/karate.csv
 ```
 
-[Thanks to the Burn team](https://github.com/tracel-ai/burn/issues/4038#issuecomment-3583903376), 
+[Thanks to the Burn team](https://github.com/tracel-ai/burn/issues/4038#issuecomment-3583903376),
 the tch-mps backend is also available now via:
 
 ```bash
@@ -118,9 +122,9 @@ cargo run --release -- \
 
 The `p` and `q` parameters control the random walk behaviour:
 
-- **p**: Controls the likelihood of returning to the previous node. Higher 
+- **p**: Controls the likelihood of returning to the previous node. Higher
   values make walks less likely to revisit nodes.
-- **q**: Controls the likelihood of exploring new parts of the graph. Values 
+- **q**: Controls the likelihood of exploring new parts of the graph. Values
   < 1 encourage exploration (BFS-like), values > 1 encourage local search (DFS-like).
 
 ## Licence
