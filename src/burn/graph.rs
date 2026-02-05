@@ -230,7 +230,7 @@ impl Node2VecGraph {
 
 #[cfg(test)]
 mod graph_tests {
-    use crate::graph::compute_transition_prob;
+    use crate::burn::graph::compute_transition_prob;
     use rustc_hash::FxHashMap;
 
     #[test]

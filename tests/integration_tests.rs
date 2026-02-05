@@ -1,6 +1,4 @@
-use node2vec_rs::model::SkipGramConfig;
-use node2vec_rs::reader::read_graph;
-use node2vec_rs::train::{train, TrainingConfig};
+use node2vec_rs::prelude::*;
 use std::path::Path;
 
 const KARATE_CSV: &str = "tests/data/karate.csv";

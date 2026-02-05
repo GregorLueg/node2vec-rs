@@ -1,28 +1,18 @@
-mod batch;
-mod dataset;
-mod graph;
-mod model;
-mod reader;
-mod train;
-
-use clap::Parser;
-use model::SkipGramConfig;
-use reader::read_graph;
-use train::{train, Args, TrainingConfig};
+use node2vec_rs::prelude::*;
 
 /// Default version uses torch CPU... It's fast across most platforms
 #[cfg(feature = "tch-cpu")]
 mod tch_cpu {
-    use super::{train, SkipGramConfig};
     use burn::backend::{
         libtorch::{LibTorch, LibTorchDevice},
         Autodiff,
     };
+    use node2vec_rs::prelude::*;
 
     pub fn run(
         output: &str,
         model_config: SkipGramConfig,
-        training_config: super::TrainingConfig,
+        training_config: TrainingConfig,
         train_walks: Vec<Vec<u32>>,
         valid_walks: Vec<Vec<u32>>,
         seed: &u64,
@@ -51,16 +41,16 @@ mod tch_cpu {
 
 #[cfg(feature = "tch-mps")]
 mod tch_mps {
-    use super::{train, SkipGramConfig};
     use burn::backend::{
         libtorch::{LibTorch, LibTorchDevice},
         Autodiff,
     };
+    use node2vec_rs::prelude::*;
 
     pub fn run(
         output: &str,
         model_config: SkipGramConfig,
-        training_config: super::TrainingConfig,
+        training_config: TrainingConfig,
         train_walks: Vec<Vec<u32>>,
         valid_walks: Vec<Vec<u32>>,
         seed: &u64,
@@ -89,16 +79,16 @@ mod tch_mps {
 
 #[cfg(any(feature = "wgpu", feature = "metal", feature = "vulkan"))]
 mod wgpu {
-    use super::{train, SkipGramConfig};
     use burn::backend::{
         wgpu::{Wgpu, WgpuDevice},
         Autodiff,
     };
+    use node2vec_rs::prelude::*;
 
     pub fn run(
         output: &str,
         model_config: SkipGramConfig,
-        training_config: super::TrainingConfig,
+        training_config: TrainingConfig,
         train_walks: Vec<Vec<u32>>,
         valid_walks: Vec<Vec<u32>>,
         seed: &u64,
@@ -131,16 +121,16 @@ mod wgpu {
     feature = "ndarray-blas-accelerate"
 ))]
 mod ndarray {
-    use super::{train, SkipGramConfig};
     use burn::backend::{
         ndarray::{NdArray, NdArrayDevice},
         Autodiff,
     };
+    use node2vec_rs::prelude::*;
 
     pub fn run(
         output: &str,
         model_config: SkipGramConfig,
-        training_config: super::TrainingConfig,
+        training_config: TrainingConfig,
         train_walks: Vec<Vec<u32>>,
         valid_walks: Vec<Vec<u32>>,
         seed: &u64,
@@ -168,6 +158,8 @@ mod ndarray {
 }
 
 fn main() {
+    use clap::Parser;
+
     let args = Args::parse();
 
     let training_config = TrainingConfig::from_args(&args);

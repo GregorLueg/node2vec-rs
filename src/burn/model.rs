@@ -1,7 +1,7 @@
 use burn::config::Config;
 use burn::module::Module;
 use burn::nn::{Embedding, EmbeddingConfig};
-use burn::tensor::{activation, backend::Backend, Int, Tensor, TensorData};
+use burn::tensor::{activation, backend::Backend, Int, Tensor};
 use std::fs::File;
 use std::io::Write;
 
@@ -173,7 +173,7 @@ impl<B: Backend> SkipGramModel<B> {
     fn extract_embeddings(&self, embd: &Embedding<B>) -> Vec<Vec<f32>> {
         // Burn's Embedding stores weights as [vocab_size, embedding_dim] row-major
         let weights = embd.weight.clone();
-        let [vocab_size, embedding_dim] = weights.dims();
+        let [_, embedding_dim] = weights.dims();
 
         // Single extraction - O(1) tensor operations
         let data = weights.to_data();
