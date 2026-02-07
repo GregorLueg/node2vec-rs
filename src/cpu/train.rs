@@ -4,9 +4,11 @@ use rand::rngs::StdRng;
 use rand::SeedableRng;
 use rand_distr::{Distribution, Uniform};
 use rayon::prelude::*;
+use std::io::IsTerminal;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
+use thousands::*;
 
 use crate::cpu::matrix::{Matrix, MatrixWrapper};
 use crate::cpu::word2vec_model::Word2Vec;
@@ -207,7 +209,7 @@ pub fn create_negative_table(
 ///
 /// Tuple of (input_matrix, output_matrix) containing learned embeddings
 pub fn train_node2vec_cpu(
-    walks: Vec<Vec<u32>>,
+    mut walks: Vec<Vec<u32>>,
     vocab_size: usize,
     args: CpuTrainArgs,
     neg_table: Arc<Vec<usize>>,
@@ -223,7 +225,7 @@ pub fn train_node2vec_cpu(
     let input = Arc::new(input_mat.make_send());
     let output = Arc::new(output_mat.make_send());
 
-    // Calculate total tokens for progress tracking
+    // calculate total tokens for progress tracking
     let total_tokens: usize = walks.iter().map(|w| w.len()).sum();
     let total_tokens_all_epochs = total_tokens * args.epochs;
 
@@ -232,13 +234,13 @@ pub fn train_node2vec_cpu(
     if args.verbose {
         println!(
             "Training on {} walks ({} tokens per epoch, {} total)",
-            walks.len(),
-            total_tokens,
-            total_tokens_all_epochs
+            walks.len().separate_with_underscores(),
+            total_tokens.separate_with_underscores(),
+            total_tokens_all_epochs.separate_with_underscores()
         );
     }
 
-    let progress = if args.verbose {
+    let progress = if args.verbose && std::io::stdout().is_terminal() {
         let pb = ProgressBar::new(total_tokens_all_epochs as u64);
         pb.set_style(
                 ProgressStyle::default_bar()
@@ -253,18 +255,26 @@ pub fn train_node2vec_cpu(
 
     let start_time = Instant::now();
 
-    // Split walks across threads
+    // split walks across threads
     let walks_per_thread = (walks.len() + args.n_threads - 1) / args.n_threads;
     let walk_chunks: Vec<Vec<Vec<u32>>> = walks
         .chunks(walks_per_thread)
         .map(|chunk| chunk.to_vec())
         .collect();
 
-    // Train for multiple epochs
+    // train for multiple epochs
     for epoch in 0..args.epochs {
         if args.verbose {
-            println!("\nEpoch {}/{}", epoch + 1, args.epochs);
+            if progress.is_some() {
+                println!("\nEpoch {}/{}", epoch + 1, args.epochs);
+            } else {
+                println!("Epoch {}/{}", epoch + 1, args.epochs);
+            }
         }
+
+        // Shuffle walks at the start of each epoch
+        let mut epoch_rng = StdRng::seed_from_u64(seed as u64 + epoch as u64);
+        walks.shuffle(&mut epoch_rng);
 
         // Parallel training across threads
         walk_chunks
@@ -296,7 +306,7 @@ pub fn train_node2vec_cpu(
         println!(
             "\nTraining complete in {:.2}s ({:.0} tokens/sec)",
             elapsed.as_secs_f64(),
-            tokens_per_sec
+            tokens_per_sec.separate_with_underscores()
         );
     }
 
