@@ -94,6 +94,9 @@ fn train_thread(
     let input_ptr = input.inner.get();
     let output_ptr = output.inner.get();
 
+    // seed
+    let neg_start = seed.wrapping_add(thread_id) as usize;
+
     let mut model = unsafe {
         Word2Vec::new(
             &mut *input_ptr,
@@ -102,6 +105,7 @@ fn train_thread(
             args.lr,
             args.neg,
             neg_table.clone(),
+            neg_start,
         )
     };
 

@@ -223,6 +223,21 @@ impl Matrix {
         unsafe { self.data.as_mut_ptr().add(i * self.n_col) }
     }
 
+    /// Returns a shared slice of row i
+    ///
+    /// ### Params
+    ///
+    /// * `i` - Row index
+    ///
+    /// ### Returns
+    ///
+    /// Slice of the row data
+    #[inline(always)]
+    pub fn row_as_slice(&self, i: usize) -> &[f32] {
+        let start = i * self.n_col;
+        &self.data[start..start + self.n_col]
+    }
+
     /// Gets a const pointer to a matrix row
     ///
     /// ### Params
@@ -256,6 +271,56 @@ impl Matrix {
     /// Faer matrix
     pub fn to_faer(&self) -> Mat<f32> {
         Mat::from_fn(self.n_row, self.n_col, |i, j| self.data[i * self.n_col + j])
+    }
+
+    /// Write the matrix rows to a CSV file
+    ///
+    /// ### Params
+    ///
+    /// * `path` - Path to the output CSV
+    pub fn write_csv(&self, path: &str) -> std::io::Result<()> {
+        use std::io::Write;
+        let mut file = std::fs::File::create(path)?;
+        for i in 0..self.n_row {
+            let start = i * self.n_col;
+            let end = start + self.n_col;
+            let line = self.data[start..end]
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<_>>()
+                .join(",");
+            writeln!(file, "{}", line)?;
+        }
+        Ok(())
+    }
+
+    /// Compute the element-wise average of two matrices
+    ///
+    /// ### Params
+    ///
+    /// * `other` - The other matrix (must have same dimensions)
+    ///
+    /// ### Returns
+    ///
+    /// A new matrix where each element is (self + other) / 2
+    ///
+    /// ### Panics
+    ///
+    /// Panics if dimensions do not match.
+    pub fn average_with(&self, other: &Matrix) -> Matrix {
+        assert_eq!(self.n_row, other.n_row, "Row count mismatch");
+        assert_eq!(self.n_col, other.n_col, "Column count mismatch");
+        let data = self
+            .data
+            .iter()
+            .zip(other.data.iter())
+            .map(|(a, b)| (a + b) * 0.5)
+            .collect();
+        Matrix {
+            n_row: self.n_row,
+            n_col: self.n_col,
+            data,
+        }
     }
 }
 

@@ -1,6 +1,12 @@
 #![allow(clippy::needless_range_loop)]
 
+pub mod graph;
+pub mod reader;
+
+#[cfg(feature = "burn")]
 pub mod burn;
+
+#[cfg(feature = "cpu")]
 pub mod cpu;
 pub mod prelude;
 
@@ -48,6 +54,9 @@ pub struct Args {
     #[arg(short, long, default_value = "/tmp/node2vec")]
     pub output: String,
 
+    #[arg(long, default_value = "cpu")]
+    pub backend: String,
+
     #[arg(short, long, default_value_t = false)]
     pub directed: bool,
 
@@ -79,7 +88,7 @@ pub struct Args {
     pub num_negatives: usize,
 
     #[arg(long, default_value_t = 42)]
-    pub seed: u64,
+    pub seed: usize,
 
     #[arg(long, default_value_t = 1.0e-3)]
     pub learning_rate: f64,

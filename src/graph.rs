@@ -102,7 +102,7 @@ impl Node2VecGraph {
         &self,
         walks_per_node: usize,
         walk_length: usize,
-        seed: u64,
+        seed: usize,
     ) -> Vec<Vec<u32>> {
         let total_walks = self.adjacency.len() * walks_per_node;
         let progress = ProgressBar::new(total_walks as u64);
@@ -121,9 +121,9 @@ impl Node2VecGraph {
                 let progress = progress.clone();
                 (0..walks_per_node).into_par_iter().map(move |walk_idx| {
                     let walk_seed = seed
-                        .wrapping_mul(*start_node as u64)
-                        .wrapping_add(walk_idx as u64);
-                    let mut rng = StdRng::seed_from_u64(walk_seed);
+                        .wrapping_mul(*start_node as usize)
+                        .wrapping_add(walk_idx);
+                    let mut rng = StdRng::seed_from_u64(walk_seed as u64);
                     let walk = self.single_walk(*start_node, walk_length, &mut rng);
                     progress.inc(1);
                     walk
@@ -230,7 +230,7 @@ impl Node2VecGraph {
 
 #[cfg(test)]
 mod graph_tests {
-    use crate::burn::graph::compute_transition_prob;
+    use crate::prelude::*;
     use rustc_hash::FxHashMap;
 
     #[test]

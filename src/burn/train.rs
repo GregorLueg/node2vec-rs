@@ -109,7 +109,7 @@ impl TrainingConfig {
             num_workers: args.num_workers,
             num_epochs: args.num_epochs,
             num_negatives: args.num_negatives,
-            seed: args.seed,
+            seed: args.seed as u64,
             learning_rate: args.learning_rate,
             p: args.p,
             q: args.q,
@@ -131,10 +131,10 @@ impl TrainingConfig {
 /// * `device` - The device on which to run the training.
 pub fn train<B: AutodiffBackend>(
     artifact_dir: &str,
-    model_config: SkipGramConfig,
-    training_config: TrainingConfig,
-    train_walks: Vec<Vec<u32>>,
-    valid_walks: Vec<Vec<u32>>,
+    model_config: &SkipGramConfig,
+    training_config: &TrainingConfig,
+    train_walks: &[Vec<u32>],
+    valid_walks: &[Vec<u32>],
     device: B::Device,
     seed: usize,
 ) -> SkipGramModel<B> {
@@ -146,12 +146,12 @@ pub fn train<B: AutodiffBackend>(
         .batch_size(training_config.batch_size)
         .shuffle(training_config.seed)
         .num_workers(training_config.num_workers)
-        .build(WalkDataset::new(train_walks));
+        .build(WalkDataset::new(train_walks.to_vec()));
 
     let dataloader_valid = DataLoaderBuilder::new(batcher)
         .batch_size(training_config.batch_size)
         .num_workers(training_config.num_workers)
-        .build(WalkDataset::new(valid_walks));
+        .build(WalkDataset::new(valid_walks.to_vec()));
 
     let train_batches = dataloader_train.iter().count();
     let valid_batches = dataloader_valid.iter().count();

@@ -100,6 +100,7 @@ impl<'a> Word2Vec<'a> {
         lr: f32,
         neg: usize,
         neg_table: Arc<Vec<usize>>,
+        neg_start: usize,
     ) -> Word2Vec<'a> {
         Self {
             input,
@@ -108,7 +109,7 @@ impl<'a> Word2Vec<'a> {
             lr,
             neg,
             grad: vec![0f32; dim],
-            neg_pos: 0,
+            neg_pos: neg_start % neg_table.len(),
             sigmoid_table: init_sigmoid_table(),
             log_table: init_log_table(),
             negative_table: neg_table,
