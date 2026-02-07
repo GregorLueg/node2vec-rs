@@ -27,6 +27,7 @@ use crate::cpu::word2vec_model::Word2Vec;
 /// * `lr_update_rate` - Learning rate update rate.
 /// * `n_threads` - Number of threads to use.
 /// * `verbose` - Whether to print progress.
+#[derive(Clone, Debug)]
 pub struct CpuTrainArgs {
     pub dim: usize,
     pub lr: f32,
