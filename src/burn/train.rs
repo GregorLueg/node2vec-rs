@@ -6,7 +6,8 @@ use burn::prelude::{ElementConversion, Module};
 use burn::record::CompactRecorder;
 use burn::tensor::{backend::AutodiffBackend, backend::Backend, Int, Tensor, TensorData};
 use indicatif::{ProgressBar, ProgressStyle};
-use rand::Rng;
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 
 use crate::burn::batch::*;
 use crate::burn::dataset::*;
@@ -30,8 +31,9 @@ pub fn sample_negatives<B: Backend>(
     vocab_size: usize,
     num_neg: usize,
     device: &B::Device,
+    seed: u64,
 ) -> Tensor<B, 2, Int> {
-    let mut rng = rand::rng();
+    let mut rng = StdRng::seed_from_u64(seed);
     let data: Vec<i64> = (0..batch_size * num_neg)
         .map(|_| rng.random_range(0..vocab_size) as i64)
         .collect();
@@ -134,6 +136,7 @@ pub fn train<B: AutodiffBackend>(
     train_walks: Vec<Vec<u32>>,
     valid_walks: Vec<Vec<u32>>,
     device: B::Device,
+    seed: usize,
 ) -> SkipGramModel<B> {
     let mut model = model_config.init::<B>(&device);
     let mut optim = AdamConfig::new().init();
@@ -177,13 +180,15 @@ pub fn train<B: AutodiffBackend>(
         );
         train_bar.set_message(epoch.to_string());
 
-        for batch in dataloader_train.iter() {
+        for (batch_idx, batch) in dataloader_train.iter().enumerate() {
+            let neg_seed = seed.wrapping_mul(epoch + 1).wrapping_add(batch_idx);
             let batch_size = batch.centers.dims()[0];
             let negatives = sample_negatives(
                 batch_size,
                 model.vocab_size,
                 training_config.num_negatives,
                 &batch.centers.device(),
+                neg_seed as u64,
             );
 
             let loss = model
@@ -217,13 +222,18 @@ pub fn train<B: AutodiffBackend>(
                 .progress_chars("=>-"),
         );
 
-        for batch in dataloader_valid.iter() {
+        for (batch_idx, batch) in dataloader_valid.iter().enumerate() {
+            let neg_seed = seed
+                .wrapping_mul(epoch + 1)
+                .wrapping_add(batch_idx)
+                .wrapping_add(usize::MAX / 2);
             let batch_size = batch.centers.dims()[0];
             let negatives = sample_negatives(
                 batch_size,
                 model_valid.vocab_size,
                 5,
                 &batch.centers.device(),
+                neg_seed as u64,
             );
             let loss = model_valid
                 .forward(batch.centers, batch.contexts, negatives)

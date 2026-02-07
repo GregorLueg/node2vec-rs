@@ -559,7 +559,7 @@ mod tests {
     fn test_dot_product_negative() {
         let a = vec![1.0, -2.0, 3.0, -4.0];
         let b = vec![-1.0, 2.0, -3.0, 4.0];
-        let expected = 1.0 * -1.0 + -2.0 * 2.0 + 3.0 * -3.0 + -4.0 * 4.0;
+        let expected = -1.0 + -2.0 * 2.0 + 3.0 * -3.0 + -4.0 * 4.0;
 
         let result = dot_simd(&a, &b);
         assert!((result - expected).abs() < 1e-6);
@@ -588,7 +588,7 @@ mod tests {
 
         saxpy_simd(&mut dst, &source, scale);
 
-        let expected = vec![5.0, 8.0, 11.0, 14.0];
+        let expected = [5.0, 8.0, 11.0, 14.0];
         for (d, e) in dst.iter().zip(expected.iter()) {
             assert!((d - e).abs() < 1e-6);
         }
@@ -613,7 +613,7 @@ mod tests {
 
         saxpy_simd(&mut dst, &source, scale);
 
-        let expected = vec![8.0, 16.0, 24.0, 32.0];
+        let expected = [8.0, 16.0, 24.0, 32.0];
         for (d, e) in dst.iter().zip(expected.iter()) {
             assert!((d - e).abs() < 1e-6);
         }
@@ -675,7 +675,7 @@ mod tests {
 
         saxpy_simd(&mut dst, &source, scale);
 
-        let expected = vec![2.0, 4.0, 6.0, 8.0];
+        let expected = [2.0, 4.0, 6.0, 8.0];
         for (d, e) in dst.iter().zip(expected.iter()) {
             assert!((d - e).abs() < 1e-6);
         }

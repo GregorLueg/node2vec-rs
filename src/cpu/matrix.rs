@@ -1,3 +1,4 @@
+use faer::Mat;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 use rand_distr::{Distribution, Uniform};
@@ -35,6 +36,15 @@ pub struct Matrix {
 pub struct MatrixWrapper {
     pub inner: UnsafeCell<Matrix>,
 }
+
+/// SAFETY: This is intentionally unsound. Multiple threads will concurrently
+/// read and write overlapping rows (e.g. a target in one thread may be a
+/// negative sample in another). This mirrors the deliberate data race in
+/// Mikolov's original word2vec C implementation and the word2vec-rs crate
+/// it was ported from. SGD tolerates stale/torn reads and the resulting
+/// embeddings converge in practice. Do not use MatrixWrapper as a general-
+/// purpose concurrent container.
+unsafe impl Sync for MatrixWrapper {}
 
 impl Matrix {
     /// Creates a new matrix initialised with zeros
@@ -138,7 +148,7 @@ impl Matrix {
     /// The caller must ensure `vec` points to at least `n_col` valid f32
     /// elements.
     #[inline(always)]
-    pub fn add_row(&mut self, vec: *const f32, i: usize, mul: f32) {
+    pub unsafe fn add_row(&mut self, vec: *const f32, i: usize, mul: f32) {
         let start = i * self.n_col;
         unsafe {
             let row_slice =
@@ -164,7 +174,7 @@ impl Matrix {
     /// The caller must ensure `vec` points to at least `row_size` valid f32
     /// elements
     #[inline(always)]
-    pub fn dot_row(&self, vec: *const f32, i: usize) -> f32 {
+    pub unsafe fn dot_row(&self, vec: *const f32, i: usize) -> f32 {
         let start = i * self.n_col;
         unsafe {
             let row_slice = std::slice::from_raw_parts(self.data.as_ptr().add(start), self.n_col);
@@ -238,6 +248,15 @@ impl Matrix {
     pub fn n_rows(&self) -> usize {
         self.n_row
     }
+
+    /// Converts the matrix to a Faer matrix
+    ///
+    /// ### Returns
+    ///
+    /// Faer matrix
+    pub fn to_faer(&self) -> Mat<f32> {
+        Mat::from_fn(self.n_row, self.n_col, |i, j| self.data[i * self.n_col + j])
+    }
 }
 
 #[cfg(test)]
@@ -291,8 +310,8 @@ mod tests {
         let mut matrix = Matrix::new(2, 4);
         matrix.data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
 
-        let vec = vec![1.0, 1.0, 1.0, 1.0];
-        matrix.add_row(vec.as_ptr(), 0, 2.0);
+        let vec = [1.0, 1.0, 1.0, 1.0];
+        unsafe { matrix.add_row(vec.as_ptr(), 0, 2.0) };
 
         assert!((matrix.data[0] - 3.0).abs() < 1e-5);
         assert!((matrix.data[1] - 4.0).abs() < 1e-5);

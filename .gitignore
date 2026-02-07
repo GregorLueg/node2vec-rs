@@ -1,1 +1,9 @@
-/target
+# Rust stuff
+debug
+target
+**/*.rs.bk
+*.pdb
+**/mutants.out*/
+
+# Apple
+.DS_Store
