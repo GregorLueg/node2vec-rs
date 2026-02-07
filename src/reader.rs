@@ -3,7 +3,7 @@ use rustc_hash::FxHashMap;
 use std::error::Error;
 use std::fs::File;
 
-use crate::graph::*;
+use crate::prelude::*;
 
 /// Helper function to read in a graph from CSV
 ///

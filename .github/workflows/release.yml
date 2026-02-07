@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'Cargo.toml'
+      - "Cargo.toml"
   workflow_dispatch:
 
 jobs:
@@ -16,19 +16,19 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag_exists: ${{ steps.check_tag.outputs.exists }}
-    
+
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
       - name: Extract version from Cargo.toml
         id: version
         run: |
           VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
           echo "version=v$VERSION" >> $GITHUB_OUTPUT
           echo "Version: v$VERSION"
-      
+
       - name: Check if tag exists
         id: check_tag
         run: |
@@ -39,7 +39,7 @@ jobs:
             echo "exists=false" >> $GITHUB_OUTPUT
             echo "Tag ${{ steps.version.outputs.version }} does not exist"
           fi
-      
+
       - name: Create tag
         if: steps.check_tag.outputs.exists == 'false'
         run: |
@@ -65,15 +65,15 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             archive: zip
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-      
+
       - name: Cache cargo
         uses: actions/cache@v4
         with:
@@ -84,32 +84,23 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-${{ matrix.target }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
-      
-      - name: Download LibTorch (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          wget https://download.pytorch.org/libtorch/cpu/libtorch-macos-x86_64-2.9.0.zip -O libtorch.zip || \
-          wget https://download.pytorch.org/libtorch/cpu/libtorch-macos-arm64-2.9.0.zip -O libtorch.zip
-          unzip libtorch.zip -d $HOME
-          echo "LIBTORCH=$HOME/libtorch" >> $GITHUB_ENV
-          echo "LD_LIBRARY_PATH=$HOME/libtorch/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
 
       - name: Build release
-        run: cargo build --release --features tch-cpu --target ${{ matrix.target }}
-      
+        run: cargo build --release --target ${{ matrix.target }}
+
       - name: Package binary (Unix)
         if: matrix.archive == 'tar.gz'
         run: |
           cd target/${{ matrix.target }}/release
           tar czf ../../../node2vec-${{ matrix.target }}.tar.gz node2vec
-      
+
       - name: Package binary (Windows)
         if: matrix.archive == 'zip'
         shell: pwsh
         run: |
           cd target/${{ matrix.target }}/release
           Compress-Archive -Path node2vec.exe -DestinationPath ../../../node2vec-${{ matrix.target }}.zip
-      
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -123,15 +114,15 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-      
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:

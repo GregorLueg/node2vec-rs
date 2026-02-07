@@ -78,7 +78,7 @@ impl Dataset<Vec<u32>> for WalkDataset {
 
 #[cfg(test)]
 mod dataset_tests {
-    use crate::dataset::WalkDataset;
+    use crate::burn::dataset::WalkDataset;
 
     #[test]
     fn test_dataset_get() {

@@ -5,94 +5,14 @@ use burn::optim::{AdamConfig, GradientsParams, Optimizer};
 use burn::prelude::{ElementConversion, Module};
 use burn::record::CompactRecorder;
 use burn::tensor::{backend::AutodiffBackend, backend::Backend, Int, Tensor, TensorData};
-use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle};
-use rand::Rng;
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 
-use crate::batch::*;
-use crate::dataset::*;
-use crate::model::*;
-
-/// CLI arguments
-///
-/// ### Fields
-///
-/// * `input` - The input CSV. Needs to be provided.
-/// * `output` - Where to store the outputs. Defaults to `"/tmp/node2vec"`.
-/// * `directed` - Shall the graph be treated as a directed graph. Defaults
-///   to `false`.
-/// * `embedding_dim` - Size of the embedding to create. Defaults to `16`.
-/// * `split` - How much of the data should be in the trainings data vs.
-///   validation data. Defaults to `0.9`.
-/// * `walks_per_node` - Number of random walks to do per node. Defaults to
-///   `20`.
-/// * `walk_length` - Length of the random walks. Defaults to `20`.
-/// * `window_size` - Window size parameter for the skipgram model. Defaults to
-///   `2`.
-/// * `batch_size` - Batch size during training. Defaults to `256`.
-/// * `num_workers` - Number of workers to use during the generation of the
-///   batches. Defaults to `4`.
-/// * `num_epochs` - Number of epochs to train the model for. Defaults to `5`.
-/// * `num_negatives` - Number of negative examples to sample. Defaults to `5`.
-/// * `seed` - Seed for reproducibility. Defaults to `42`.
-/// * `learning_rate` - Learning rate for the Adam optimiser. Defaults to
-///   `1-e3`.
-/// * `p` - p parameter for the node2vec random walks and controls the
-///   probability to return to origin node. Defaults to `1.0`.
-/// * `q` - q parameter for node2vec random walks and controls the probability
-///   to venture on a different node from the origin node. Defaults to `1.0`.
-#[derive(Parser)]
-#[command(name = "node2vec")]
-#[command(about = "Node2Vec implementation using Burn", long_about = None)]
-pub struct Args {
-    #[arg(short, long)]
-    pub input: String,
-
-    #[arg(short, long, default_value = "/tmp/node2vec")]
-    pub output: String,
-
-    #[arg(short, long, default_value_t = false)]
-    pub directed: bool,
-
-    #[arg(short, long, default_value_t = 16)]
-    pub embedding_dim: usize,
-
-    #[arg(short, long, default_value_t = 0.9)]
-    pub split: f32,
-
-    #[arg(long, default_value_t = 20)]
-    pub walks_per_node: usize,
-
-    #[arg(long, default_value_t = 20)]
-    pub walk_length: usize,
-
-    #[arg(long, default_value_t = 2)]
-    pub window_size: usize,
-
-    #[arg(long, default_value_t = 256)]
-    pub batch_size: usize,
-
-    #[arg(long, default_value_t = 4)]
-    pub num_workers: usize,
-
-    #[arg(long, default_value_t = 5)]
-    pub num_epochs: usize,
-
-    #[arg(long, default_value_t = 5)]
-    pub num_negatives: usize,
-
-    #[arg(long, default_value_t = 42)]
-    pub seed: u64,
-
-    #[arg(long, default_value_t = 1.0e-3)]
-    pub learning_rate: f64,
-
-    #[arg(long, default_value_t = 1.0)]
-    pub p: f32,
-
-    #[arg(long, default_value_t = 1.0)]
-    pub q: f32,
-}
+use crate::burn::batch::*;
+use crate::burn::dataset::*;
+use crate::burn::model::*;
+use crate::Args;
 
 /// Sample negative examples
 ///
@@ -111,8 +31,9 @@ pub fn sample_negatives<B: Backend>(
     vocab_size: usize,
     num_neg: usize,
     device: &B::Device,
+    seed: u64,
 ) -> Tensor<B, 2, Int> {
-    let mut rng = rand::rng();
+    let mut rng = StdRng::seed_from_u64(seed);
     let data: Vec<i64> = (0..batch_size * num_neg)
         .map(|_| rng.random_range(0..vocab_size) as i64)
         .collect();
@@ -188,7 +109,7 @@ impl TrainingConfig {
             num_workers: args.num_workers,
             num_epochs: args.num_epochs,
             num_negatives: args.num_negatives,
-            seed: args.seed,
+            seed: args.seed as u64,
             learning_rate: args.learning_rate,
             p: args.p,
             q: args.q,
@@ -210,11 +131,12 @@ impl TrainingConfig {
 /// * `device` - The device on which to run the training.
 pub fn train<B: AutodiffBackend>(
     artifact_dir: &str,
-    model_config: SkipGramConfig,
-    training_config: TrainingConfig,
-    train_walks: Vec<Vec<u32>>,
-    valid_walks: Vec<Vec<u32>>,
+    model_config: &SkipGramConfig,
+    training_config: &TrainingConfig,
+    train_walks: &[Vec<u32>],
+    valid_walks: &[Vec<u32>],
     device: B::Device,
+    seed: usize,
 ) -> SkipGramModel<B> {
     let mut model = model_config.init::<B>(&device);
     let mut optim = AdamConfig::new().init();
@@ -224,12 +146,12 @@ pub fn train<B: AutodiffBackend>(
         .batch_size(training_config.batch_size)
         .shuffle(training_config.seed)
         .num_workers(training_config.num_workers)
-        .build(WalkDataset::new(train_walks));
+        .build(WalkDataset::new(train_walks.to_vec()));
 
     let dataloader_valid = DataLoaderBuilder::new(batcher)
         .batch_size(training_config.batch_size)
         .num_workers(training_config.num_workers)
-        .build(WalkDataset::new(valid_walks));
+        .build(WalkDataset::new(valid_walks.to_vec()));
 
     let train_batches = dataloader_train.iter().count();
     let valid_batches = dataloader_valid.iter().count();
@@ -258,13 +180,15 @@ pub fn train<B: AutodiffBackend>(
         );
         train_bar.set_message(epoch.to_string());
 
-        for batch in dataloader_train.iter() {
+        for (batch_idx, batch) in dataloader_train.iter().enumerate() {
+            let neg_seed = seed.wrapping_mul(epoch + 1).wrapping_add(batch_idx);
             let batch_size = batch.centers.dims()[0];
             let negatives = sample_negatives(
                 batch_size,
                 model.vocab_size,
                 training_config.num_negatives,
                 &batch.centers.device(),
+                neg_seed as u64,
             );
 
             let loss = model
@@ -298,13 +222,18 @@ pub fn train<B: AutodiffBackend>(
                 .progress_chars("=>-"),
         );
 
-        for batch in dataloader_valid.iter() {
+        for (batch_idx, batch) in dataloader_valid.iter().enumerate() {
+            let neg_seed = seed
+                .wrapping_mul(epoch + 1)
+                .wrapping_add(batch_idx)
+                .wrapping_add(usize::MAX / 2);
             let batch_size = batch.centers.dims()[0];
             let negatives = sample_negatives(
                 batch_size,
                 model_valid.vocab_size,
                 5,
                 &batch.centers.device(),
+                neg_seed as u64,
             );
             let loss = model_valid
                 .forward(batch.centers, batch.contexts, negatives)
