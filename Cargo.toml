@@ -11,7 +11,7 @@ description = "A node2vec implementation in Rust via the Burn tensor framework."
 burn = { version = "0.20.1", features = ["dataset", "train"], optional = true }
 clap = { version = "4.5.53", features = ["derive"] }
 csv = "1.4.0"
-faer = "0.24.0"
+faer = "0.23.2"
 indicatif = "0.18.3"
 rand = "0.9.2"
 rand_distr = "0.5.1"
