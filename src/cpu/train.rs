@@ -233,7 +233,7 @@ pub fn train_node2vec_cpu(
 
     if args.verbose {
         println!(
-            "Training on {} walks ({} tokens per epoch, {} total)",
+            "Training on {} random walks ({} tokens per epoch, {} total)",
             walks.len().separate_with_underscores(),
             total_tokens.separate_with_underscores(),
             total_tokens_all_epochs.separate_with_underscores()
@@ -268,7 +268,7 @@ pub fn train_node2vec_cpu(
             if progress.is_some() {
                 println!("\nEpoch {}/{}", epoch + 1, args.epochs);
             } else {
-                println!("Epoch {}/{}", epoch + 1, args.epochs);
+                println!("  Epoch {}/{}", epoch + 1, args.epochs);
             }
         }
 
@@ -306,7 +306,7 @@ pub fn train_node2vec_cpu(
         println!(
             "\nTraining complete in {:.2}s ({:.0} tokens/sec)",
             elapsed.as_secs_f64(),
-            tokens_per_sec.separate_with_underscores()
+            tokens_per_sec
         );
     }
 
