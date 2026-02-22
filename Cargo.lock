@@ -4121,7 +4121,7 @@ checksum = "df270209a7f04d62459240d890ecb792714d5db12c92937823574a09930276b4"
 
 [[package]]
 name = "node2vec-rs"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "burn",
  "clap",
