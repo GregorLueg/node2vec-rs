@@ -82,6 +82,7 @@ fn test_karate_cpu_end_to_end() {
         lr_update_rate: 10_000,
         n_threads,
         verbose: false,
+        sample: 1e-3,
     };
 
     let (mut input_mat, _output_mat) =
@@ -129,6 +130,7 @@ fn test_karate_cpu_community_structure() {
         lr_update_rate: 10_000,
         n_threads: n_threads,
         verbose: true,
+        sample: 1e-3,
     };
 
     let (input_mat, output_mat) =

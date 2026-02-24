@@ -181,6 +181,7 @@ fn main() {
                     lr_update_rate: 10_000,
                     n_threads: args.num_workers,
                     verbose: true,
+                    sample: args.sample,
                 };
 
                 let (mut input_mat, _output_mat) = train_node2vec_cpu(

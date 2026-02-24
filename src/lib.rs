@@ -98,4 +98,7 @@ pub struct Args {
 
     #[arg(long, default_value_t = 1.0)]
     pub q: f32,
+
+    #[arg(long, default_value_t = 1.0e-3)]
+    pub sample: f32,
 }
