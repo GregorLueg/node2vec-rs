@@ -255,13 +255,6 @@ pub fn train_node2vec_cpu(
 
     let start_time = Instant::now();
 
-    // split walks across threads
-    let walks_per_thread = (walks.len() + args.n_threads - 1) / args.n_threads;
-    let walk_chunks: Vec<Vec<Vec<u32>>> = walks
-        .chunks(walks_per_thread)
-        .map(|chunk| chunk.to_vec())
-        .collect();
-
     // train for multiple epochs
     for epoch in 0..args.epochs {
         if args.verbose {
@@ -272,11 +265,13 @@ pub fn train_node2vec_cpu(
             }
         }
 
-        // Shuffle walks at the start of each epoch
         let mut epoch_rng = StdRng::seed_from_u64(seed as u64 + epoch as u64);
         walks.shuffle(&mut epoch_rng);
 
-        // Parallel training across threads
+        // rechunk after shuffling so threads see different data each epoch
+        let walks_per_thread = (walks.len() + args.n_threads - 1) / args.n_threads;
+        let walk_chunks: Vec<&[Vec<u32>]> = walks.chunks(walks_per_thread).collect();
+
         walk_chunks
             .par_iter()
             .enumerate()
