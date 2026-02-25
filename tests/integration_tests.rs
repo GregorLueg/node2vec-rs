@@ -128,7 +128,7 @@ fn test_karate_cpu_community_structure() {
         neg: 5,
         window: 10,
         lr_update_rate: 10_000,
-        n_threads: n_threads,
+        n_threads,
         verbose: true,
         sample: 1e-3,
     };
