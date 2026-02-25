@@ -1,7 +1,7 @@
 use indicatif::{ProgressBar, ProgressStyle};
 use rand::prelude::SliceRandom;
 use rand::rngs::StdRng;
-use rand::SeedableRng;
+use rand::{Rng, SeedableRng};
 use rand_distr::{Distribution, Uniform};
 use rayon::prelude::*;
 use std::io::IsTerminal;
@@ -29,6 +29,8 @@ use crate::cpu::word2vec_model::Word2Vec;
 /// * `lr_update_rate` - Learning rate update rate.
 /// * `n_threads` - Number of threads to use.
 /// * `verbose` - Whether to print progress.
+/// * `sample` - Subsampling threshold; nodes with frequency above this are
+///   randomly dropped during training.
 #[derive(Clone, Debug)]
 pub struct CpuTrainArgs {
     pub dim: usize,
@@ -39,6 +41,7 @@ pub struct CpuTrainArgs {
     pub lr_update_rate: usize,
     pub n_threads: usize,
     pub verbose: bool,
+    pub sample: f32,
 }
 
 /// Skipgram training on a single walk
@@ -49,8 +52,24 @@ pub struct CpuTrainArgs {
 /// * `walk` - The walk (sequence of node IDs)
 /// * `rng` - Random number generator
 /// * `window_dist` - Uniform distribution for sampling window size
-fn skipgram(model: &mut Word2Vec, walk: &[u32], rng: &mut StdRng, window_dist: &Uniform<usize>) {
-    let length = walk.len();
+fn skipgram(
+    model: &mut Word2Vec,
+    walk: &[u32],
+    rng: &mut StdRng,
+    window_dist: &Uniform<usize>,
+    keep_probs: &[f32],
+) {
+    // subsample the walk: drop highly frequent nodes to bring rare nodes closer
+    let mut active_walk = Vec::with_capacity(walk.len());
+    for &node in walk {
+        let prob = keep_probs[node as usize];
+        if prob >= 1.0 || rng.random::<f32>() < prob {
+            active_walk.push(node);
+        }
+    }
+
+    // train on the active walk
+    let length = active_walk.len();
     for w in 0..length {
         let bound = window_dist.sample(rng);
         let start = w.saturating_sub(bound);
@@ -58,7 +77,7 @@ fn skipgram(model: &mut Word2Vec, walk: &[u32], rng: &mut StdRng, window_dist: &
 
         for c in start..end {
             if c != w {
-                model.update(walk[w] as usize, walk[c] as usize);
+                model.update(active_walk[w] as usize, active_walk[c] as usize);
             }
         }
     }
@@ -73,17 +92,20 @@ fn skipgram(model: &mut Word2Vec, walk: &[u32], rng: &mut StdRng, window_dist: &
 /// * `output` - The output matrix
 /// * `args` - The training arguments
 /// * `neg_table` - The negative sampling table
+/// * `keep_probs` - Per-node probability of being kept during subsampling.
 /// * `processed_tokens` - The number of processed tokens
 /// * `total_tokens` - The total number of tokens
 /// * `thread_id` - The thread ID
 /// * `seed` - The random seed
 /// * `progress` - The progress bar
+#[allow(clippy::too_many_arguments)]
 fn train_thread(
     walks: &[Vec<u32>],
     input: &Arc<MatrixWrapper>,
     output: &Arc<MatrixWrapper>,
     args: &CpuTrainArgs,
     neg_table: &Arc<Vec<usize>>,
+    keep_probs: &Arc<Vec<f32>>,
     processed_tokens: &Arc<AtomicUsize>,
     total_tokens: usize,
     thread_id: usize,
@@ -93,12 +115,9 @@ fn train_thread(
     let mut rng = StdRng::seed_from_u64(seed as u64);
     let window_dist = Uniform::new(1, args.window + 1).unwrap();
 
-    // get mutable access to matrices
     let input_ptr = input.inner.get();
     let output_ptr = output.inner.get();
-
-    // seed
-    let neg_start = seed.wrapping_add(thread_id) as usize;
+    let neg_start = seed.wrapping_add(thread_id);
 
     let mut model = unsafe {
         Word2Vec::new(
@@ -115,10 +134,11 @@ fn train_thread(
     let mut local_token_count = 0;
 
     for walk in walks {
-        skipgram(&mut model, walk, &mut rng, &window_dist);
+        skipgram(&mut model, walk, &mut rng, &window_dist, keep_probs);
+
+        // Use original walk length to pace the learning rate decay consistently
         local_token_count += walk.len();
 
-        // update learning rate periodically
         if local_token_count >= args.lr_update_rate {
             let global_tokens = processed_tokens.fetch_add(local_token_count, Ordering::SeqCst);
             let progress_ratio = global_tokens as f32 / total_tokens as f32;
@@ -136,7 +156,6 @@ fn train_thread(
         }
     }
 
-    // final update
     processed_tokens.fetch_add(local_token_count, Ordering::SeqCst);
 }
 
@@ -147,6 +166,7 @@ fn train_thread(
 /// * `vocab_size` - Number of unique nodes
 /// * `walks` - The walks to compute node frequencies from
 /// * `neg_table_size` - Size of negative sampling table
+/// * `seed` - Random seed for shuffling the negative sampling table.
 ///
 /// ### Returns
 ///
@@ -215,7 +235,6 @@ pub fn train_node2vec_cpu(
     neg_table: Arc<Vec<usize>>,
     seed: usize,
 ) -> (Matrix, Matrix) {
-    // Initialise matrices
     let mut input_mat = Matrix::new(vocab_size, args.dim);
     let mut output_mat = Matrix::new(vocab_size, args.dim);
 
@@ -225,9 +244,32 @@ pub fn train_node2vec_cpu(
     let input = Arc::new(input_mat.make_send());
     let output = Arc::new(output_mat.make_send());
 
-    // calculate total tokens for progress tracking
     let total_tokens: usize = walks.iter().map(|w| w.len()).sum();
     let total_tokens_all_epochs = total_tokens * args.epochs;
+
+    let mut counts = vec![0usize; vocab_size];
+    for walk in &walks {
+        for &node in walk {
+            if (node as usize) < vocab_size {
+                counts[node as usize] += 1;
+            }
+        }
+    }
+
+    let mut keep_probs = vec![1.0f32; vocab_size];
+    if args.sample > 0.0 {
+        let total_f64 = total_tokens as f64;
+        for (node, &count) in counts.iter().enumerate() {
+            if count > 0 {
+                let freq = count as f64 / total_f64;
+                // Mikolov's subsampling formula
+                let keep_prob =
+                    ((freq / args.sample as f64).sqrt() + 1.0) * (args.sample as f64 / freq);
+                keep_probs[node] = keep_prob.min(1.0) as f32;
+            }
+        }
+    }
+    let keep_probs = Arc::new(keep_probs);
 
     let processed_tokens = Arc::new(AtomicUsize::new(0));
 
@@ -255,14 +297,6 @@ pub fn train_node2vec_cpu(
 
     let start_time = Instant::now();
 
-    // split walks across threads
-    let walks_per_thread = (walks.len() + args.n_threads - 1) / args.n_threads;
-    let walk_chunks: Vec<Vec<Vec<u32>>> = walks
-        .chunks(walks_per_thread)
-        .map(|chunk| chunk.to_vec())
-        .collect();
-
-    // train for multiple epochs
     for epoch in 0..args.epochs {
         if args.verbose {
             if progress.is_some() {
@@ -272,11 +306,12 @@ pub fn train_node2vec_cpu(
             }
         }
 
-        // Shuffle walks at the start of each epoch
         let mut epoch_rng = StdRng::seed_from_u64(seed as u64 + epoch as u64);
         walks.shuffle(&mut epoch_rng);
 
-        // Parallel training across threads
+        let walks_per_thread = walks.len().div_ceil(args.n_threads);
+        let walk_chunks: Vec<&[Vec<u32>]> = walks.chunks(walks_per_thread).collect();
+
         walk_chunks
             .par_iter()
             .enumerate()
@@ -287,6 +322,7 @@ pub fn train_node2vec_cpu(
                     &output,
                     &args,
                     &neg_table,
+                    &keep_probs, // <-- Pass it here
                     &processed_tokens,
                     total_tokens_all_epochs,
                     thread_id,
@@ -310,7 +346,6 @@ pub fn train_node2vec_cpu(
         );
     }
 
-    // Unwrap matrices
     let input = Arc::try_unwrap(input)
         .expect("Failed to unwrap input matrix")
         .inner

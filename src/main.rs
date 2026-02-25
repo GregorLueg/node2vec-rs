@@ -169,7 +169,7 @@ fn main() {
                     vocab_size as usize,
                     &walks,
                     node2vec_rs::cpu::NEGATIVE_TABLE_SIZE,
-                    seed as usize,
+                    seed,
                 );
 
                 let cpu_args = CpuTrainArgs {
@@ -181,15 +181,11 @@ fn main() {
                     lr_update_rate: 10_000,
                     n_threads: args.num_workers,
                     verbose: true,
+                    sample: args.sample,
                 };
 
-                let (mut input_mat, _output_mat) = train_node2vec_cpu(
-                    walks,
-                    vocab_size as usize,
-                    cpu_args,
-                    neg_table,
-                    seed as usize,
-                );
+                let (mut input_mat, _output_mat) =
+                    train_node2vec_cpu(walks, vocab_size as usize, cpu_args, neg_table, seed);
 
                 input_mat.norm_self();
 

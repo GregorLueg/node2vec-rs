@@ -120,10 +120,13 @@ impl Node2VecGraph {
             .flat_map(|(start_node, _)| {
                 let progress = progress.clone();
                 (0..walks_per_node).into_par_iter().map(move |walk_idx| {
-                    let walk_seed = seed
-                        .wrapping_mul(*start_node as usize)
-                        .wrapping_add(walk_idx);
-                    let mut rng = StdRng::seed_from_u64(walk_seed as u64);
+                    // Properly hash the combination to avoid RNG synchronization
+                    let mut walk_seed = seed as u64;
+                    walk_seed ^= (*start_node as u64).wrapping_mul(0x517cc1b727220a95);
+                    walk_seed ^= (walk_idx as u64).wrapping_mul(0xcbf29ce484222325);
+                    walk_seed = walk_seed.wrapping_mul(0x4f1bbcdcbfa54c43); // Final mix
+
+                    let mut rng = StdRng::seed_from_u64(walk_seed);
                     let walk = self.single_walk(*start_node, walk_length, &mut rng);
                     progress.inc(1);
                     walk
