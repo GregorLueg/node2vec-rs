@@ -1,3 +1,5 @@
+//! CSV reader utilities.
+
 use csv::Reader;
 use rustc_hash::FxHashMap;
 use std::error::Error;

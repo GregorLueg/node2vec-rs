@@ -1,3 +1,6 @@
+//! Matrix representation for the CPU-accelerated version of node2vec in this
+//! crate.
+
 use faer::Mat;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
@@ -28,12 +31,9 @@ pub struct Matrix {
 /// Uses `UnsafeCell` to allow interior mutability across threads.
 /// Safety is ensured by the training algorithm's access patterns where
 /// each thread writes to distinct rows.
-///
-/// ### Fields
-///
-/// * `inner` - The inner matrix data (unsafe cell)
 #[derive(Debug)]
 pub struct MatrixWrapper {
+    /// The inner matrix data (unsafe cell)
     pub inner: UnsafeCell<Matrix>,
 }
 
@@ -323,6 +323,10 @@ impl Matrix {
         }
     }
 }
+
+///////////
+// Tests //
+///////////
 
 #[cfg(test)]
 mod tests {

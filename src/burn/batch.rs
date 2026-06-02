@@ -1,3 +1,5 @@
+//! Contains the batch generation for the Burn batches for node2vec.
+
 #![allow(clippy::needless_range_loop)]
 
 use burn::data::dataloader::batcher::Batcher;
@@ -5,14 +7,11 @@ use burn::prelude::*;
 use burn::tensor::{Int, TensorData};
 
 /// Batch structure for skip-gram training containing center-context pairs
-///
-/// ### Fields
-///
-/// * `centers` - The center word tokens (what we embed)
-/// * `contexts` - The context word tokens (what we predict)
 #[derive(Clone, Debug)]
 pub struct SkipGramBatch<B: Backend> {
+    /// The center word tokens (what we embed)
     pub centers: Tensor<B, 1, Int>,
+    /// The context word tokens (what we predict)
     pub contexts: Tensor<B, 1, Int>,
 }
 
@@ -82,6 +81,10 @@ impl<B: Backend> Batcher<B, Vec<u32>, SkipGramBatch<B>> for SkipGramBatcher {
         }
     }
 }
+
+///////////
+// Tests //
+///////////
 
 #[cfg(test)]
 mod batch_tests {

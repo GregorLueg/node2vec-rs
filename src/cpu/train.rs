@@ -1,3 +1,6 @@
+//! Train loop for the CPU-based version of node2vec-rs. Uses Hogwild! SGD
+//! to fit the model.
+
 use indicatif::{ProgressBar, ProgressStyle};
 use rand::prelude::SliceRandom;
 use rand::rngs::StdRng;
@@ -18,29 +21,26 @@ use crate::cpu::word2vec_model::Word2Vec;
 /////////////
 
 /// Train arguments for CPU implementation.
-///
-/// ### Fields
-///
-/// * `dim` - Dimension of the embedding vectors.
-/// * `lr` - Learning rate.
-/// * `epochs` - Number of epochs to train.
-/// * `neg` - Number of negative samples to use.
-/// * `window` - Window size for context words.
-/// * `lr_update_rate` - Learning rate update rate.
-/// * `n_threads` - Number of threads to use.
-/// * `verbose` - Whether to print progress.
-/// * `sample` - Subsampling threshold; nodes with frequency above this are
-///   randomly dropped during training.
 #[derive(Clone, Debug)]
 pub struct CpuTrainArgs {
+    /// Dimension of the embedding vectors.
     pub dim: usize,
+    /// Learning rate.
     pub lr: f32,
+    /// Number of epochs to train.
     pub epochs: usize,
+    /// Number of negative samples to use.
     pub neg: usize,
+    /// Window size for context words.
     pub window: usize,
+    /// Learning rate update rate.
     pub lr_update_rate: usize,
+    /// Number of threads to use.
     pub n_threads: usize,
+    /// Whether to print progress.
     pub verbose: bool,
+    /// Subsampling threshold; nodes with frequency above this are randomly
+    /// dropped during training.
     pub sample: f32,
 }
 

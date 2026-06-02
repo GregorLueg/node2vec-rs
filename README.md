@@ -44,7 +44,8 @@ cargo run --release -- --backend cpu --input tests/data/karate.csv
 When using multiple threads, results are not fully reproducible across runs
 due to a tolerated race condition in the shared embedding updates (mirroring
 the original word2vec C implementation). Use --num-workers 1 for
-deterministic results.
+deterministic results. The core idea here is to use the
+[Hogwild! style SGD](https://arxiv.org/abs/1106.5730) for maximum performance.
 
 ### Burn
 
@@ -60,14 +61,8 @@ cargo run --release --features tch-mps -- --backend burn --input tests/data/kara
 # wgpu
 cargo run --release --features wgpu -- --backend burn --input tests/data/karate.csv
 
-# ndarray
+# flex
 cargo run --release --features ndarray -- --backend burn --input tests/data/karate.csv
-
-# ndarray with Apple Accelerate
-cargo run --release --features ndarray-blas-accelerate -- --backend burn --input tests/data/karate.csv
-
-# ndarray with OpenBLAS
-cargo run --release --features ndarray-blas-openblas -- --backend burn --input tests/data/karate.csv
 ```
 
 ## Feature Flags
@@ -77,9 +72,7 @@ cargo run --release --features ndarray-blas-openblas -- --backend burn --input t
 | `cpu` (default) | Gensim-style CPU backend |
 | `tch-cpu` | Burn + libtorch CPU |
 | `tch-mps` | Burn + libtorch MPS (Apple Silicon) |
-| `ndarray` | Burn + ndarray |
-| `ndarray-blas-openblas` | Burn + ndarray + OpenBLAS |
-| `ndarray-blas-accelerate` | Burn + ndarray + Apple Accelerate |
+| `flex` | Burn + flex CPU framework |
 | `wgpu` | Burn + wgpu |
 | `metal` | Burn + wgpu (Metal) |
 | `vulkan` | Burn + wgpu (Vulkan) |
