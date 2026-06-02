@@ -1,3 +1,5 @@
+//! SIMD implementations to accelerate the CPU-based version of node2vec-rs.
+
 #![allow(dead_code)]
 
 use std::sync::OnceLock;
@@ -7,7 +9,7 @@ use wide::{f32x4, f32x8};
 // Helpers //
 /////////////
 
-// Enum for the different architectures and potential SIMD levels
+/// Enum for the different architectures and potential SIMD levels
 #[derive(Clone, Copy, Debug)]
 pub enum SimdLevel {
     /// Scalar version

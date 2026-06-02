@@ -1,3 +1,5 @@
+//! Generation of the transition probability and the [Node2VecGraph].
+
 use indicatif::{ProgressBar, ProgressStyle};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -76,14 +78,11 @@ pub fn compute_transition_prob(
 /////////////////////
 
 /// Structure to store the Node2Vec graph
-///
-/// ### Fields
-///
-/// * `adjacency` - The adjacency stored as an FxHashMap.
-/// * `transition_probs` - The transition probabilities stored in a FxHashMap.
 #[derive(Debug, Clone)]
 pub struct Node2VecGraph {
+    /// The adjacency stored as an FxHashMap.
     pub adjacency: FxHashMap<u32, Vec<(u32, f32)>>,
+    /// The transition probabilities stored in a FxHashMap.
     pub transition_probs: FxHashMap<(u32, u32), Vec<(u32, f32)>>,
 }
 
@@ -230,6 +229,10 @@ impl Node2VecGraph {
         }
     }
 }
+
+///////////
+// Tests //
+///////////
 
 #[cfg(test)]
 mod graph_tests {

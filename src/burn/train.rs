@@ -1,3 +1,6 @@
+//! Contains the training loops for the node2vec implementation in the burn
+//! framework
+
 use burn::config::Config;
 use burn::data::dataloader::DataLoaderBuilder;
 use burn::module::AutodiffModule;
@@ -45,47 +48,41 @@ pub fn sample_negatives<B: Backend>(
 }
 
 /// Training configuration
-///
-/// ### Fields
-///
-/// * `walks_per_node` - Walks per node. Defaults to `20`.
-/// * `walk_length` - Walk length per random walk. Defaults to `20`.
-/// * `window_size` - The window size parameter for the SkipGram model. Defaults
-///   to `2`.
-/// * `batch_size` - Batch size for the training. Defaults to `256`.
-/// * `num_workers` - Number of workers to use for the generation of batches.
-///   Defaults to `4`.
-/// * `num_epochs` - Number of epochs to run the algorithm for. Defaults to `5`.
-/// * `num_negatives` - Number of negative samples to generate. Defaults to `5`.
-/// * `seed` - Random seed for reproducibility.
-/// * `learning_rate` - Learning rate for the Adam optimiser. Defaults to
-///   `1e-3`.
-/// * `p` - p parameter for the node2vec random walks and controls the
-///   probability to return to origin node. Defaults to `1.0`.
-/// * `q` - q parameter for node2vec random walks and controls the probability
-///   to venture on a different node from the origin node. Defaults to `1.0`.
 #[derive(Config, Debug)]
 pub struct TrainingConfig {
+    /// Walks per node. Defaults to `20`.
     #[config(default = 20)]
     pub walks_per_node: usize,
+    /// Walk length per random walk. Defaults to `20`.
     #[config(default = 20)]
     pub walk_length: usize,
+    /// The window size parameter for the SkipGram model. Defaults to `2`.
     #[config(default = 2)]
     pub window_size: usize,
+    /// Batch size for the training. Defaults to `256`.
     #[config(default = 256)]
     pub batch_size: usize,
+    /// Number of workers to use for the generation of batches. Defaults to `4`.
     #[config(default = 4)]
     pub num_workers: usize,
+    /// Number of epochs to run the algorithm for. Defaults to `5`.
     #[config(default = 5)]
     pub num_epochs: usize,
+    /// Number of negative samples to generate. Defaults to `5`.
     #[config(default = 5)]
     pub num_negatives: usize,
+    /// Random seed for reproducibility.
     #[config(default = 42)]
     pub seed: u64,
+    /// Learning rate for the Adam optimiser. Defaults to `1e-3`.
     #[config(default = 1.0e-3)]
     pub learning_rate: f64,
+    /// p parameter for the node2vec random walks and controls the
+    /// probability to return to origin node. Defaults to `1.0`.
     #[config(default = 1_f32)]
     pub q: f32,
+    /// q parameter for node2vec random walks and controls the probability
+    /// to venture on a different node from the origin node. Defaults to `1.0`.
     #[config(default = 1_f32)]
     pub p: f32,
 }

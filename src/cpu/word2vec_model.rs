@@ -1,3 +1,5 @@
+//! The CPU-based node2vec model.
+
 use std::sync::Arc;
 
 use crate::cpu::matrix::Matrix;
@@ -48,33 +50,30 @@ fn init_log_table() -> [f32; LOG_TABLE_SIZE + 1] {
 //////////
 
 /// Initialise the word2vec model
-///
-/// ### Fields
-///
-/// * `input`: The input matrix
-/// * `output`: The output matrix
-/// * `dim`: The dimension of the model
-/// * `lr`: The learning rate
-/// * `neg`: The number of negative samples
-/// * `grad`: The gradient vector
-/// * `neg_pos`: The number of negative samples per positive sample
-/// * `sigmoid_table`: The sigmoid table
-/// * `log_table`: The log table
-/// * `negative_table`: The negative table
-/// * `loss`: The loss
-/// * `n_samples`: The number of samples
 pub struct Word2Vec<'a> {
+    /// The input matrix
     pub input: &'a mut Matrix,
+    /// The output matrix
     output: &'a mut Matrix,
+    /// The dimension of the model
     dim: usize,
+    /// The learning rate
     lr: f32,
+    /// The number of negative samples
     neg: usize,
+    /// The gradient vector
     grad: Vec<f32>,
+    /// The number of negative samples per positive sample
     neg_pos: usize,
+    /// The sigmoid table
     sigmoid_table: [f32; SIGMOID_TABLE_SIZE + 1],
+    /// The log table
     log_table: [f32; LOG_TABLE_SIZE + 1],
+    /// The negative table
     negative_table: Arc<Vec<usize>>,
+    /// The loss
     loss: f64,
+    /// The number of samples
     n_samples: u64,
 }
 

@@ -1,3 +1,5 @@
+//! Contains the burn node2vec model
+
 use burn::config::Config;
 use burn::module::Module;
 use burn::nn::{Embedding, EmbeddingConfig};
@@ -9,30 +11,24 @@ use std::io::Write;
 ///
 /// Uses negative sampling to train word embeddings by predicting context words
 /// from target words.
-///
-/// ### Fields
-///
-/// * `target_embd` - The target embedding
-/// * `context_embd` - The context embedding
-/// * `vocab_size` - The vocabulary size, i.e., number of nodes in node2vec
-/// * `embedding_dim` - The embedding dimension
 #[derive(Module, Debug)]
 pub struct SkipGramModel<B: Backend> {
+    /// The target embedding
     pub target_embd: Embedding<B>,
+    /// The context embedding
     pub context_embd: Embedding<B>,
+    /// The vocabulary size, i.e., number of nodes in node2vec
     pub vocab_size: usize,
+    /// The embedding dimension
     pub embedding_dim: usize,
 }
 
 /// Config for the SkipGram model
-///
-/// ### Fields
-///
-/// * `vocab_size` - Size of the vocabulary
-/// * `embedding_dim` - Size of the embedding
 #[derive(Config, Debug)]
 pub struct SkipGramConfig {
+    ///  Size of the vocabulary
     pub vocab_size: usize,
+    /// Size of the embedding
     pub embedding_dim: usize,
 }
 
@@ -236,6 +232,10 @@ impl<B: Backend> SkipGramModel<B> {
         Ok(())
     }
 }
+
+///////////
+// Tests //
+///////////
 
 #[cfg(test)]
 mod model_tests {

@@ -105,14 +105,10 @@ mod wgpu {
     }
 }
 
-#[cfg(any(
-    feature = "ndarray",
-    feature = "ndarray-blas-openblas",
-    feature = "ndarray-blas-accelerate"
-))]
-mod ndarray {
+#[cfg(feature = "flex")]
+mod flex {
     use burn::backend::{
-        ndarray::{NdArray, NdArrayDevice},
+        flex::{Flex, FlexDevice},
         Autodiff,
     };
     use node2vec_rs::prelude::*;
@@ -126,9 +122,9 @@ mod ndarray {
         seed: &usize,
     ) {
         use burn::prelude::Backend;
-        let device = NdArrayDevice::Cpu;
-        NdArray::<f32>::seed(&device, *seed as u64);
-        let model = train::<Autodiff<NdArray>>(
+        let device = FlexDevice;
+        Flex::<f32>::seed(&device, *seed as u64);
+        let model = train::<Autodiff<Flex>>(
             output,
             model_config,
             training_config,
@@ -230,12 +226,8 @@ fn main() {
                     &seed,
                 );
 
-                #[cfg(any(
-                    feature = "ndarray",
-                    feature = "ndarray-blas-openblas",
-                    feature = "ndarray-blas-accelerate"
-                ))]
-                ndarray::run(
+                #[cfg(feature = "flex")]
+                flex::run(
                     &args.output,
                     &model_config,
                     &training_config,

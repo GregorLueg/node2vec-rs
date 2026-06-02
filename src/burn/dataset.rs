@@ -1,11 +1,11 @@
+//! Module for the data set generation, i.e., random walks, for the node2vec
+//! implementation in burn.
+
 use burn::data::dataset::Dataset;
 
 /// Dataset wrapper for random walk sequences
-///
-/// ### Fields
-///
-/// * `walks` - Slice of the underlying walks
 pub struct WalkDataset {
+    /// Vector of the underlying walks
     walks: Vec<Vec<u32>>,
 }
 
@@ -75,6 +75,10 @@ impl Dataset<Vec<u32>> for WalkDataset {
         self.walks.len()
     }
 }
+
+///////////
+// Tests //
+///////////
 
 #[cfg(test)]
 mod dataset_tests {

@@ -1,3 +1,5 @@
+//! Useful stuff for across the crate.
+
 pub use crate::graph::{compute_transition_prob, Node2VecGraph};
 pub use crate::reader::read_graph;
 pub use crate::Args;
