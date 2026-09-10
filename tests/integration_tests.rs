@@ -1,5 +1,4 @@
 use node2vec_rs::prelude::*;
-use std::path::Path;
 
 const KARATE_CSV: &str = "tests/data/karate.csv";
 
@@ -71,7 +70,12 @@ fn test_karate_cpu_end_to_end() {
     let walks = graph.generate_walks(5, 10, 42);
 
     let vocab_size = graph.adjacency.keys().max().unwrap() + 1;
-    let neg_table = create_negative_table(vocab_size as usize, &walks, NEGATIVE_TABLE_SIZE, 42);
+    let neg_table = NegativeTable::Global(create_negative_table(
+        vocab_size as usize,
+        &walks,
+        NEGATIVE_TABLE_SIZE,
+        42,
+    ));
 
     let args = CpuTrainArgs {
         dim: 8,
@@ -119,7 +123,12 @@ fn test_karate_cpu_community_structure() {
     let walks = graph.generate_walks(10, 80, 42);
 
     let vocab_size = graph.adjacency.keys().max().unwrap() + 1;
-    let neg_table = create_negative_table(vocab_size as usize, &walks, NEGATIVE_TABLE_SIZE, 42);
+    let neg_table = NegativeTable::Global(create_negative_table(
+        vocab_size as usize,
+        &walks,
+        NEGATIVE_TABLE_SIZE,
+        42,
+    ));
 
     let args = CpuTrainArgs {
         dim: 16,
@@ -313,7 +322,7 @@ fn test_karate_end_to_end_training() {
     assert_eq!(embeddings[0].len(), 8);
 
     // Check model output
-    assert!(Path::new("/tmp/karate_test/model.mpk").exists());
+    assert!(std::path::Path::new("/tmp/karate_test/model.mpk").exists());
 }
 
 #[test]
@@ -462,4 +471,120 @@ fn test_karate_community_structure() {
         node34_to_faction2 > node34_to_faction1,
         "Node 34 should be more similar to its own faction"
     );
+}
+
+////////////////////////////
+// Heterogeneous fixtures //
+////////////////////////////
+
+/// Path to the heterogeneous node table: 4 genes, 2 pathways, 2 diseases.
+const HET_NODES: &str = "tests/data/het_nodes.csv";
+/// Path to the matching edge table, unweighted.
+const HET_EDGES: &str = "tests/data/het_edges.csv";
+
+#[test]
+fn test_het_graph_loads_and_sorts_by_type() {
+    let graph = read_het_graph(HET_NODES, HET_EDGES, false).unwrap();
+
+    assert_eq!(graph.n_nodes(), 8);
+    assert_eq!(graph.n_types(), 3);
+    assert_eq!(graph.n_edges(), 20); // 10 edges, both directions
+    assert_eq!(graph.type_names(), &["gene", "pathway", "disease"]);
+
+    // Ids must be contiguous by type for the range-based start-node scan.
+    let types = graph.node_types();
+    assert_eq!(types, &[0, 0, 0, 0, 1, 1, 2, 2]);
+    assert_eq!(&graph.node_names()[..4], &["g1", "g2", "g3", "g4"]);
+}
+
+#[test]
+fn test_het_metapath_walks_respect_the_schema() {
+    let graph = read_het_graph(HET_NODES, HET_EDGES, false).unwrap();
+    let schema = Metapath::parse("gene-pathway-gene", graph.type_names()).unwrap();
+    let (walks, stats) = graph.generate_walks(&schema, 10, 11, 42).unwrap();
+
+    assert_eq!(stats.start_nodes, 4);
+    assert_eq!(stats.attempted, 40);
+    // Every gene here reaches a pathway, so nothing dead-ends.
+    assert_eq!(stats.truncated, 0);
+    assert_eq!(stats.dropped, 0);
+
+    for walk in &walks {
+        assert_eq!(walk.len(), stats.walk_length);
+        for (step, &node) in walk.iter().enumerate() {
+            let expected = if step % 2 == 0 { 0 } else { 1 };
+            assert_eq!(graph.node_types()[node as usize], expected);
+        }
+    }
+}
+
+#[test]
+fn test_het_metapath_rejects_a_schema_that_does_not_close() {
+    let graph = read_het_graph(HET_NODES, HET_EDGES, false).unwrap();
+    assert!(Metapath::parse("gene-pathway", graph.type_names()).is_err());
+    assert!(Metapath::parse("gene-pathway-disease", graph.type_names()).is_err());
+    assert!(Metapath::parse("gene-protein-gene", graph.type_names()).is_err());
+    assert!(Metapath::parse("gene-pathway-gene-disease-gene", graph.type_names()).is_ok());
+}
+
+#[cfg(feature = "cpu")]
+#[test]
+fn test_het_end_to_end_metapath2vec() {
+    use node2vec_rs::cpu::train::{
+        create_negative_table_per_type, train_node2vec_cpu, CpuTrainArgs, NegativeTable,
+    };
+    use std::sync::Arc;
+
+    let graph = read_het_graph(HET_NODES, HET_EDGES, false).unwrap();
+    let schema = Metapath::parse("gene-pathway-gene-disease-gene", graph.type_names()).unwrap();
+    let (walks, stats) = graph.generate_walks(&schema, 40, 17, 42).unwrap();
+    assert!(!walks.is_empty(), "{stats}");
+
+    let vocab_size = graph.n_nodes();
+
+    // metapath2vec++: negatives drawn per node type.
+    let neg_table = NegativeTable::PerType {
+        tables: create_negative_table_per_type(
+            graph.node_types(),
+            graph.n_types(),
+            &walks,
+            NEGATIVE_TABLE_SIZE,
+            42,
+        ),
+        node_type: Arc::new(graph.node_types().to_vec()),
+    };
+
+    let args = CpuTrainArgs {
+        dim: 8,
+        lr: 0.025,
+        epochs: 2,
+        neg: 5,
+        window: 3,
+        lr_update_rate: 100,
+        n_threads: 2,
+        verbose: false,
+        sample: 1e-3,
+    };
+
+    let (mut input_mat, _) = train_node2vec_cpu(walks, vocab_size, args, neg_table, 42);
+    input_mat.norm_self();
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("embeddings.csv");
+    input_mat.write_csv(path.to_str().unwrap()).unwrap();
+
+    // One row per node, and the row index is the dense id the node table maps.
+    let content = std::fs::read_to_string(&path).unwrap();
+    let lines: Vec<&str> = content.lines().collect();
+    assert_eq!(lines.len(), vocab_size);
+    assert_eq!(lines[0].split(',').count(), 8);
+    assert_eq!(graph.node_names().len(), lines.len());
+
+    // Trained vectors must not still be the zero or the initial rows.
+    let trained: Vec<f32> = lines[0]
+        .split(',')
+        .map(|v| v.parse::<f32>().unwrap())
+        .collect();
+    assert!(trained.iter().any(|v| v.abs() > 1e-6));
+    assert!(trained.iter().all(|v| v.is_finite()));
 }

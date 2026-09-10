@@ -1,9 +1,8 @@
 //! The CPU-based node2vec model.
 
-use std::sync::Arc;
-
 use crate::cpu::matrix::Matrix;
 use crate::cpu::simd::saxpy_simd;
+use crate::cpu::train::NegativeTable;
 use crate::cpu::*;
 
 ////////////////
@@ -63,14 +62,16 @@ pub struct Word2Vec<'a> {
     neg: usize,
     /// The gradient vector
     grad: Vec<f32>,
-    /// The number of negative samples per positive sample
-    neg_pos: usize,
+    /// Cursor into each negative table, one per table. Walking a pre-shuffled
+    /// table beats drawing a fresh random index: it is one increment, and the
+    /// shuffle already supplies the randomness.
+    neg_pos: Vec<usize>,
     /// The sigmoid table
     sigmoid_table: [f32; SIGMOID_TABLE_SIZE + 1],
     /// The log table
     log_table: [f32; LOG_TABLE_SIZE + 1],
-    /// The negative table
-    negative_table: Arc<Vec<usize>>,
+    /// Where negatives are drawn from
+    negative_table: NegativeTable,
     /// The loss
     loss: f64,
     /// The number of samples
@@ -98,9 +99,12 @@ impl<'a> Word2Vec<'a> {
         dim: usize,
         lr: f32,
         neg: usize,
-        neg_table: Arc<Vec<usize>>,
+        neg_table: NegativeTable,
         neg_start: usize,
     ) -> Word2Vec<'a> {
+        // Threads start at different offsets so they do not march through the
+        // same stretch of the table in lockstep.
+        let neg_pos = vec![neg_start; neg_table.n_cursors()];
         Self {
             input,
             output,
@@ -108,7 +112,7 @@ impl<'a> Word2Vec<'a> {
             lr,
             neg,
             grad: vec![0f32; dim],
-            neg_pos: neg_start % neg_table.len(),
+            neg_pos,
             sigmoid_table: init_sigmoid_table(),
             log_table: init_log_table(),
             negative_table: neg_table,
@@ -147,23 +151,49 @@ impl<'a> Word2Vec<'a> {
         self.lr
     }
 
-    /// Return a negative
+    /// Return a negative sample for a context node
+    ///
+    /// Under [`NegativeTable::PerType`] the negative is drawn from the context
+    /// node's own type, which is the whole of the metapath2vec++ change.
     ///
     /// ### Params
     ///
-    /// * `target` - The target value
+    /// * `target` - The context node the negative is being drawn against
     ///
     /// ### Returns
     ///
-    /// A negative example
+    /// A node id that is not `target`, unless the table is too degenerate to
+    /// offer one, in which case `target` itself comes back rather than
+    /// spinning forever.
     fn get_negative(&mut self, target: usize) -> usize {
-        loop {
-            let negative = self.negative_table[self.neg_pos];
-            self.neg_pos = (self.neg_pos + 1) % self.negative_table.len();
+        let Self {
+            negative_table,
+            neg_pos,
+            ..
+        } = self;
+
+        let (table, cursor) = match negative_table {
+            NegativeTable::Global(table) => (table.as_slice(), 0),
+            NegativeTable::PerType { tables, node_type } => {
+                let t = node_type[target] as usize;
+                (tables[t].as_slice(), t)
+            }
+        };
+
+        if table.is_empty() {
+            return target;
+        }
+
+        // One sweep of the table is enough to prove there is no other node in
+        // it; without the bound a single-node type would loop forever.
+        for _ in 0..table.len() {
+            let negative = table[neg_pos[cursor] % table.len()] as usize;
+            neg_pos[cursor] = neg_pos[cursor].wrapping_add(1);
             if target != negative {
                 return negative;
             }
         }
+        target
     }
 
     /// Update the model
@@ -284,5 +314,75 @@ impl<'a> Word2Vec<'a> {
         } else {
             -self.log(1.0 - score)
         }
+    }
+}
+
+///////////
+// Tests //
+///////////
+
+#[cfg(test)]
+mod word2vec_tests {
+    use super::*;
+    use crate::cpu::train::NegativeTable;
+    use std::sync::Arc;
+
+    /// Six nodes: 0-2 of type 0, 3-5 of type 1.
+    const NODE_TYPE: [u8; 6] = [0, 0, 0, 1, 1, 1];
+
+    /// Scratch matrices; only `get_negative` is under test here.
+    fn matrices() -> (Matrix, Matrix) {
+        (Matrix::new(6, 4), Matrix::new(6, 4))
+    }
+
+    #[test]
+    fn test_per_type_negatives_match_the_context_type() {
+        let table = NegativeTable::PerType {
+            tables: vec![Arc::new(vec![0, 1, 2]), Arc::new(vec![3, 4, 5])],
+            node_type: Arc::new(NODE_TYPE.to_vec()),
+        };
+        let (mut input, mut output) = matrices();
+        let mut w2v = Word2Vec::new(&mut input, &mut output, 4, 0.1, 5, table, 0);
+
+        for target in 0..6usize {
+            for _ in 0..20 {
+                let negative = w2v.get_negative(target);
+                assert_eq!(
+                    NODE_TYPE[negative], NODE_TYPE[target],
+                    "negative {negative} has the wrong type for target {target}"
+                );
+                assert_ne!(negative, target, "the true target came back as a negative");
+            }
+        }
+    }
+
+    #[test]
+    fn test_global_negatives_ignore_type_but_exclude_the_target() {
+        let table = NegativeTable::Global(Arc::new(vec![0, 1, 2, 3, 4, 5]));
+        let (mut input, mut output) = matrices();
+        let mut w2v = Word2Vec::new(&mut input, &mut output, 4, 0.1, 5, table, 0);
+
+        let mut seen_other_type = false;
+        for _ in 0..20 {
+            let negative = w2v.get_negative(0);
+            assert_ne!(negative, 0);
+            seen_other_type |= NODE_TYPE[negative] != NODE_TYPE[0];
+        }
+        assert!(seen_other_type, "the global table should cross types");
+    }
+
+    /// A type holding exactly one node has no valid negative for it. The
+    /// cursor must give up rather than spin.
+    #[test]
+    fn test_degenerate_table_does_not_hang() {
+        let table = NegativeTable::PerType {
+            tables: vec![Arc::new(vec![0]), Arc::new(vec![])],
+            node_type: Arc::new(NODE_TYPE.to_vec()),
+        };
+        let (mut input, mut output) = matrices();
+        let mut w2v = Word2Vec::new(&mut input, &mut output, 4, 0.1, 5, table, 0);
+
+        assert_eq!(w2v.get_negative(0), 0);
+        assert_eq!(w2v.get_negative(3), 3);
     }
 }
