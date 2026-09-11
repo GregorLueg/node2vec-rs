@@ -157,7 +157,7 @@ pub struct WalkStats {
     pub attempted: usize,
     /// Walks that hit a dead end before reaching the requested length.
     pub truncated: usize,
-    /// Walks discarded for being shorter than [`MIN_WALK_LEN`].
+    /// Walks discarded for being shorter than two nodes.
     pub dropped: usize,
     /// Mean length of the walks that survived.
     pub mean_length: f32,

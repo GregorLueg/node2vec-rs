@@ -38,6 +38,9 @@ wgpu = ["burn", "burn/wgpu"]
 metal = ["burn", "burn/wgpu"]
 vulkan = ["burn", "burn/wgpu"]
 
+[package.metadata.docs.rs]
+features = ["cpu", "burn"]
+
 [[bin]]
 name = "node2vec"
 path = "src/main.rs"
