@@ -76,7 +76,7 @@ static SIMD_LEVEL: OnceLock<SimdLevel> = OnceLock::new();
 /// ### Returns
 ///
 /// The widest level available on this target, lowered by
-/// [`SIMD_OVERRIDE_VAR`] if it asks.
+/// `NODE2VEC_SIMD` if it asks.
 #[cfg(target_arch = "x86_64")]
 #[inline(always)]
 pub fn detect_simd_level() -> SimdLevel {
