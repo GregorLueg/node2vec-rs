@@ -88,6 +88,58 @@ pub fn read_het_graph(
     build_het_graph(nodes, edges, weighted)
 }
 
+impl HetGraph {
+    /// Build a heterogeneous graph from in-memory node and edge lists.
+    ///
+    /// The counterpart to [`read_het_graph`] for callers that already hold the
+    /// tables, e.g. an FFI layer.
+    ///
+    /// ### Params
+    ///
+    /// * `nodes` - `(id, type)` pairs; their order defines the node indices
+    /// * `edges` - `(from, to, weight)` with zero-based indices into `nodes`
+    /// * `weighted` - Whether `weight` carries information
+    /// * `directed` - When false, every edge is inserted in both directions
+    ///
+    /// ### Returns
+    ///
+    /// The typed CSR, with dense ids assigned contiguously by node type, so
+    /// the row order of any embedding follows [`HetGraph::node_names`], not
+    /// the input order.
+    pub fn from_edges(
+        nodes: Vec<(String, String)>,
+        edges: Vec<(u32, u32, f32)>,
+        weighted: bool,
+        directed: bool,
+    ) -> Result<Self, Node2VecError> {
+        if nodes.is_empty() {
+            return Err(Node2VecError::EmptyNodeTable {
+                path: "<memory>".to_string(),
+            });
+        }
+
+        let n_nodes = nodes.len();
+        if let Some(&index) = edges
+            .iter()
+            .flat_map(|(from, to, _)| [from, to])
+            .find(|&&i| i as usize >= n_nodes)
+        {
+            return Err(Node2VecError::EdgeOutOfRange { index, n_nodes });
+        }
+
+        let edges = if directed {
+            edges
+        } else {
+            edges
+                .into_iter()
+                .flat_map(|(from, to, w)| [(from, to, w), (to, from, w)])
+                .collect()
+        };
+
+        build_het_graph(nodes, edges, weighted)
+    }
+}
+
 /// Read the node table into `(id, type)` pairs in file order.
 ///
 /// ### Params
@@ -363,6 +415,40 @@ mod het_reader_tests {
 
         // A node with no neighbours of a type yields an empty run, not a panic.
         assert!(g.neighbours_of_type(1, 0).is_empty());
+    }
+
+    fn mem_nodes() -> Vec<(String, String)> {
+        [("a1", "a"), ("b1", "b"), ("a2", "a")]
+            .iter()
+            .map(|(i, t)| (i.to_string(), t.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn test_from_edges_matches_reader_layout() {
+        let g = HetGraph::from_edges(mem_nodes(), vec![(0, 1, 1.0), (2, 1, 1.0)], false, false)
+            .unwrap();
+        assert_eq!(g.n_edges(), 4);
+        assert_eq!(g.node_types(), &[0, 0, 1]);
+        assert_eq!(g.node_names(), &["a1", "a2", "b1"]);
+
+        let g = HetGraph::from_edges(mem_nodes(), vec![(0, 1, 1.0)], false, true).unwrap();
+        assert_eq!(g.n_edges(), 1);
+    }
+
+    #[test]
+    fn test_from_edges_rejects_out_of_range() {
+        match HetGraph::from_edges(mem_nodes(), vec![(0, 3, 1.0)], false, false) {
+            Err(Node2VecError::EdgeOutOfRange { index, n_nodes }) => {
+                assert_eq!(index, 3);
+                assert_eq!(n_nodes, 3);
+            }
+            other => panic!("expected EdgeOutOfRange, got {other:?}"),
+        }
+        assert!(matches!(
+            HetGraph::from_edges(Vec::new(), Vec::new(), false, false),
+            Err(Node2VecError::EmptyNodeTable { .. })
+        ));
     }
 
     #[test]

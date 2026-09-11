@@ -64,6 +64,15 @@ pub enum Node2VecError {
         type_name: String,
     },
 
+    /// An in-memory edge references a node index outside the node table.
+    #[error("Edge endpoint {index} is out of range for {n_nodes} nodes.")]
+    EdgeOutOfRange {
+        /// The offending zero-based node index
+        index: u32,
+        /// Number of nodes in the node table
+        n_nodes: usize,
+    },
+
     /// The node table was empty.
     #[error("The node table '{path}' contained no rows.")]
     EmptyNodeTable {
