@@ -19,9 +19,9 @@ use wide::f32x4;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
-////////////////
-// Constants //
-////////////////
+////////////
+// Consts //
+////////////
 
 /// Independent accumulators in the reduction kernels.
 ///
@@ -39,9 +39,9 @@ const SIMD_ACCUMULATORS: usize = 4;
 #[cfg(target_arch = "x86_64")]
 const SIMD_OVERRIDE_VAR: &str = "NODE2VEC_SIMD";
 
-//////////////////
+//////////////
 // Dispatch //
-//////////////////
+//////////////
 
 /// The SIMD width a kernel was compiled for.
 ///
@@ -197,10 +197,6 @@ fn dot_f32_sse(a: &[f32], b: &[f32]) -> f32 {
     let singles = (len - blocks * lanes) / 4;
     let mut acc = [f32x4::ZERO; SIMD_ACCUMULATORS];
 
-    // Counted loops with the trip count known up front, and raw loads rather
-    // than `try_into` on a subslice. Both matter: a `while offset + 4 <= len`
-    // form and the bounds check each cost more than the arithmetic at these
-    // widths. Measured on NEON, not assumed.
     unsafe {
         let a_ptr = a.as_ptr();
         let b_ptr = b.as_ptr();

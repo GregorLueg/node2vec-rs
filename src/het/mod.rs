@@ -3,9 +3,10 @@
 //! metapath2vec is node2vec over a typed graph with the walk constrained by a
 //! metapath schema. The walk is **first-order**: the next hop depends only on
 //! the current node and the schema position, never on where the walk came
-//! from. That is why nothing here resembles [`crate::graph::compute_transition_prob`]
-//! and its `(prev, curr)`-keyed table, whose memory is O(sum of deg^2) and
-//! which would be fatal on a knowledge graph.
+//! from. That is why nothing here resembles
+//! [`crate::graph::compute_transition_prob`] and its `(prev, curr)`-keyed
+//! table, whose memory is O(sum of deg^2) and which would be fatal on a
+//! knowledge graph.
 //!
 //! The skip-gram objective is unchanged, so walks feed the existing CPU
 //! trainer verbatim.
