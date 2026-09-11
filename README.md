@@ -1,5 +1,6 @@
 [![CI](https://github.com/GregorLueg/node2vec-rs/actions/workflows/test.yml/badge.svg)](https://github.com/GregorLueg/node2vec-rs/actions/workflows/test.yml)
 [![Crates.io](https://img.shields.io/crates/v/node2vec-rs.svg)](https://crates.io/crates/node2vec-rs)
+[![docs.rs](https://img.shields.io/docsrs/node2vec-rs)](https://docs.rs/node2vec-rs)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 # node2vec-rs
@@ -10,7 +11,11 @@ training backends:
 - **CPU** (default) -- a Gensim-style word2vec implementation with SIMD-accelerated
   linear algebra. Fast, lightweight, no framework dependencies.
 - **Burn** -- uses the [Burn](https://github.com/tracel-ai/burn) deep learning
-  framework with pluggable backends (libtorch, ndarray, wgpu).
+  framework with pluggable backends (libtorch, flex, wgpu).
+
+Heterogeneous graphs are covered too: hand it a node table with types and a
+metapath and you get [metapath2vec](https://dl.acm.org/doi/10.1145/3097983.3098036)
+(or metapath2vec++) on the CPU backend.
 
 ## What is node2vec?
 
@@ -62,7 +67,7 @@ cargo run --release --features tch-mps -- --backend burn --input tests/data/kara
 cargo run --release --features wgpu -- --backend burn --input tests/data/karate.csv
 
 # flex
-cargo run --release --features ndarray -- --backend burn --input tests/data/karate.csv
+cargo run --release --features flex -- --backend burn --input tests/data/karate.csv
 ```
 
 ## Feature Flags
@@ -110,6 +115,10 @@ The `weight` column is optional and defaults to `1.0` if omitted.
 | `--learning-rate` | | `0.001` | Learning rate (Adam for Burn, linear decay for CPU) |
 | `--p` | | `1.0` | Return parameter |
 | `--q` | | `1.0` | In-out parameter |
+| `--sample` | | `0.001` | Subsampling threshold for frequent nodes (CPU only) |
+| `--nodes` | | | Node table (`id,type`); switches to metapath2vec |
+| `--metapath` | | | Metapath schema, e.g. `gene-pathway-gene`; required with `--nodes` |
+| `--metapath-plus` | | `false` | Per-type negative sampling (metapath2vec++) |
 
 ## node2vec Parameters
 
@@ -120,6 +129,43 @@ The `p` and `q` parameters control the random walk behaviour:
 - **q** -- Controls the likelihood of exploring new parts of the graph. Values
   < 1 encourage exploration (BFS-like), values > 1 encourage local search
   (DFS-like).
+
+## metapath2vec
+
+Got a typed graph, say genes, pathways and GO terms? Pass a node table with
+`--nodes` and a schema with `--metapath`, and the walks follow the schema
+instead of the p/q bias. The skip-gram objective is the same, so it trains on
+the same CPU backend.
+
+The node table is `id,type`; the edge table stays `from,to[,weight]`. Ids are
+strings here, so `GO:0006915` and `ENSG00000141510` are fine as they are:
+
+```
+id,type
+g1,gene
+p1,pathway
+```
+
+```bash
+cargo run --release -- \
+  --input tests/data/het_edges.csv \
+  --nodes tests/data/het_nodes.csv \
+  --metapath gene-pathway-gene
+```
+
+A few things to know:
+
+- The schema is hyphen separated and has to close on its starting type
+  (`gene-pathway-gene`, not `gene-pathway`). Type names can't contain `-`.
+- Walks are first-order, so `--p` and `--q` are ignored. This also means no
+  `(prev, curr)` transition table, which would blow up on a knowledge graph.
+- `--metapath-plus` draws negatives from the context node's own type, i.e.
+  metapath2vec++.
+- Besides `embeddings.csv`, the run writes `nodes.csv` mapping each embedding
+  row back to its string id and type.
+- Walk stats (start nodes, truncated and dropped walks) are always printed. A
+  wrong schema still produces vectors, just garbage ones, so read them.
+- CPU backend only. `--backend burn` with `--nodes` errors out.
 
 ## Examples
 

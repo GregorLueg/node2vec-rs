@@ -3,7 +3,9 @@
 #![allow(clippy::needless_range_loop)] // I want these loops!
 #![warn(missing_docs)]
 
+pub mod errors;
 pub mod graph;
+pub mod het;
 pub mod reader;
 
 #[cfg(feature = "burn")]
@@ -100,4 +102,21 @@ pub struct Args {
     /// dropped during training.
     #[arg(long, default_value_t = 1.0e-3)]
     pub sample: f32,
+
+    /// Node table with an `"id"` and a `"type"` column. Its presence switches
+    /// the run to the heterogeneous metapath2vec path; without it behaviour is
+    /// exactly node2vec and `p`/`q` apply as before.
+    #[arg(long)]
+    pub nodes: Option<String>,
+
+    /// Metapath schema over node type names, hyphen separated and closing on
+    /// its starting type, e.g. `"gene-pathway-gene"`. Required with `--nodes`.
+    #[arg(long)]
+    pub metapath: Option<String>,
+
+    /// Draw negative samples from the context node's own type, i.e.
+    /// metapath2vec++ rather than plain metapath2vec. Ignored without
+    /// `--nodes`.
+    #[arg(long, default_value_t = false)]
+    pub metapath_plus: bool,
 }
