@@ -18,3 +18,14 @@ jobs:
       # No GPU lane here. An empty gpu-args skips the job entirely.
       gpu-args: ''
     secrets: inherit
+
+  # Mirrors the docs.rs feature set; broken intra-doc links fail the build.
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo doc --no-deps --lib --features cpu,burn
+        env:
+          RUSTDOCFLAGS: -D warnings

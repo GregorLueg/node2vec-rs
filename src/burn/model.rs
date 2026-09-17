@@ -79,13 +79,13 @@ impl<B: Backend> SkipGramModel<B> {
     ///
     /// ### Params
     ///
-    /// * `centers` - Center word indices [batch_size]
-    /// * `contexts` - Context word indices [batch_size]
-    /// * `negatives` - Negative sample indices [batch_size, num_negatives]
+    /// * `centers` - Center word indices `[batch_size]`
+    /// * `contexts` - Context word indices `[batch_size]`
+    /// * `negatives` - Negative sample indices `[batch_size, num_negatives]`
     ///
     /// ### Returns
     ///
-    /// Loss tensor [batch_size]
+    /// Loss tensor `[batch_size]`
     pub fn forward(
         &self,
         centers: Tensor<B, 1, Int>,
@@ -129,13 +129,13 @@ impl<B: Backend> SkipGramModel<B> {
 
     /// Extract the embeddings as a vector
     ///
-    /// The returned vector is indexed by node ID, so embeddings[n] contains
+    /// The returned vector is indexed by node ID, so `embeddings[n]` contains
     /// the embedding for node n. This works for both 0-indexed and 1-indexed
-    /// graphs (for 1-indexed graphs, embeddings[0] will be untrained).
+    /// graphs (for 1-indexed graphs, `embeddings[0]` will be untrained).
     ///
     /// ### Returns
     ///
-    /// A Vec<Vec<f32>> of the embeddings, indexed by node ID.
+    /// A `Vec<Vec<f32>>` of the embeddings, indexed by node ID.
     pub fn embeddings_to_vec(&self) -> Vec<Vec<f32>> {
         self.extract_embeddings(&self.target_embd)
     }
@@ -147,7 +147,7 @@ impl<B: Backend> SkipGramModel<B> {
     ///
     /// ### Returns
     ///
-    /// A Vec<Vec<f32>> of the combined embeddings, indexed by node ID.
+    /// A `Vec<Vec<f32>>` of the combined embeddings, indexed by node ID.
     #[allow(dead_code)]
     pub fn combined_embeddings_to_vec(&self) -> Vec<Vec<f32>> {
         let target = self.extract_embeddings(&self.target_embd);
