@@ -39,6 +39,18 @@ jobs:
             echo "Tag ${{ steps.version.outputs.version }} does not exist"
           fi
 
+      - name: Install Rust
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: dtolnay/rust-toolchain@stable
+
+      # Publish before tagging. A failure here must not leave a tag behind, or
+      # the run can never be retried: an existing tag skips every job below.
+      - name: Publish to crates.io
+        if: steps.check_tag.outputs.exists == 'false'
+        run: cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
       - name: Create tag
         if: steps.check_tag.outputs.exists == 'false'
         run: |
@@ -47,20 +59,10 @@ jobs:
           git tag ${{ steps.version.outputs.version }}
           git push origin ${{ steps.version.outputs.version }}
 
-      - name: Install Rust
-        if: steps.check_tag.outputs.exists == 'false'
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Publish to crates.io
-        if: steps.check_tag.outputs.exists == 'false'
-        run: cargo publish
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
   build:
     name: Build on ${{ matrix.os }}
     needs: check-version
-    if: needs.check-version.outputs.tag_exists == 'false'
+    if: needs.check-version.outputs.tag_exists == 'false' || github.event_name == 'workflow_dispatch'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -75,7 +77,11 @@ jobs:
             target: x86_64-pc-windows-msvc
             archive: zip
     steps:
+      # Build the tag, not the dispatch ref, so a manual re-release of an older
+      # tag ships that tag's code.
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.check-version.outputs.version }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -118,12 +124,14 @@ jobs:
   release:
     name: Create GitHub Release
     needs: [check-version, build]
-    if: needs.check-version.outputs.tag_exists == 'false'
+    if: needs.check-version.outputs.tag_exists == 'false' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.check-version.outputs.version }}
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
