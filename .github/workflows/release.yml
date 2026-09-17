@@ -77,7 +77,11 @@ jobs:
             target: x86_64-pc-windows-msvc
             archive: zip
     steps:
+      # Build the tag, not the dispatch ref, so a manual re-release of an older
+      # tag ships that tag's code.
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.check-version.outputs.version }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -126,6 +130,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.check-version.outputs.version }}
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
