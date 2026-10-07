@@ -137,12 +137,14 @@ pub fn train(
     let batcher = SkipGramBatcher::new(training_config.window_size);
 
     let dataloader_train = DataLoaderBuilder::new(batcher.clone())
+        .set_device(device.clone())
         .batch_size(training_config.batch_size)
         .shuffle(training_config.seed)
         .num_workers(training_config.num_workers)
         .build(WalkDataset::new(train_walks.to_vec()));
 
     let dataloader_valid = DataLoaderBuilder::new(batcher)
+        .set_device(device.clone())
         .batch_size(training_config.batch_size)
         .num_workers(training_config.num_workers)
         .build(WalkDataset::new(valid_walks.to_vec()));
