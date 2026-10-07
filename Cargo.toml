@@ -12,7 +12,7 @@ burn = { version = "0.22.0", features = ["dataset", "train"], optional = true }
 clap = { version = "4.5.53", features = ["derive"] }
 csv = "1.4.0"
 document-features = "0.2.12"
-faer = "0.23.2"
+faer = "0.24.4"
 indicatif = "0.18.3"
 rand = "0.9.2"
 rand_distr = "0.5.1"
