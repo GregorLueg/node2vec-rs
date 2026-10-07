@@ -8,7 +8,7 @@ repository = "https://github.com/GregorLueg/node2vec-rs"
 description = "A node2vec implementation in Rust via the Burn tensor framework."
 
 [dependencies]
-burn = { version = "0.21.0", features = ["dataset", "train"], optional = true }
+burn = { version = "0.22.0", features = ["dataset", "train"], optional = true }
 clap = { version = "4.5.53", features = ["derive"] }
 csv = "1.4.0"
 document-features = "0.2.12"

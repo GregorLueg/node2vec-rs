@@ -2,10 +2,7 @@ use node2vec_rs::prelude::*;
 
 #[cfg(feature = "tch-cpu")]
 mod tch_cpu {
-    use burn::backend::{
-        libtorch::{LibTorch, LibTorchDevice},
-        Autodiff,
-    };
+    use burn::tensor::Device;
     use node2vec_rs::prelude::*;
 
     pub fn run(
@@ -16,10 +13,9 @@ mod tch_cpu {
         valid_walks: &[Vec<u32>],
         seed: &usize,
     ) {
-        use burn::prelude::Backend;
-        let device = LibTorchDevice::Cpu;
-        LibTorch::<f32>::seed(&device, *seed as u64);
-        let model = train::<Autodiff<LibTorch>>(
+        let device = Device::libtorch();
+        device.seed(*seed as u64);
+        let model = train(
             output,
             model_config,
             training_config,
@@ -37,10 +33,7 @@ mod tch_cpu {
 
 #[cfg(feature = "tch-mps")]
 mod tch_mps {
-    use burn::backend::{
-        libtorch::{LibTorch, LibTorchDevice},
-        Autodiff,
-    };
+    use burn::tensor::Device;
     use node2vec_rs::prelude::*;
 
     pub fn run(
@@ -51,10 +44,9 @@ mod tch_mps {
         valid_walks: &[Vec<u32>],
         seed: &usize,
     ) {
-        use burn::prelude::Backend;
-        let device = LibTorchDevice::Mps;
-        LibTorch::<f32>::seed(&device, *seed as u64);
-        let model = train::<Autodiff<LibTorch>>(
+        let device = Device::libtorch_mps();
+        device.seed(*seed as u64);
+        let model = train(
             output,
             model_config,
             training_config,
@@ -72,10 +64,7 @@ mod tch_mps {
 
 #[cfg(any(feature = "wgpu", feature = "metal", feature = "vulkan"))]
 mod wgpu {
-    use burn::backend::{
-        wgpu::{Wgpu, WgpuDevice},
-        Autodiff,
-    };
+    use burn::tensor::{Device, DeviceKind};
     use node2vec_rs::prelude::*;
 
     pub fn run(
@@ -86,10 +75,9 @@ mod wgpu {
         valid_walks: &[Vec<u32>],
         seed: &usize,
     ) {
-        use burn::prelude::Backend;
-        let device = WgpuDevice::default();
-        Wgpu::<f32>::seed(&device, *seed as u64);
-        let model = train::<Autodiff<Wgpu>>(
+        let device = Device::wgpu(DeviceKind::default());
+        device.seed(*seed as u64);
+        let model = train(
             output,
             model_config,
             training_config,
@@ -107,10 +95,7 @@ mod wgpu {
 
 #[cfg(feature = "flex")]
 mod flex {
-    use burn::backend::{
-        flex::{Flex, FlexDevice},
-        Autodiff,
-    };
+    use burn::tensor::Device;
     use node2vec_rs::prelude::*;
 
     pub fn run(
@@ -121,10 +106,9 @@ mod flex {
         valid_walks: &[Vec<u32>],
         seed: &usize,
     ) {
-        use burn::prelude::Backend;
-        let device = FlexDevice;
-        Flex::<f32>::seed(&device, *seed as u64);
-        let model = train::<Autodiff<Flex>>(
+        let device = Device::flex();
+        device.seed(*seed as u64);
+        let model = train(
             output,
             model_config,
             training_config,

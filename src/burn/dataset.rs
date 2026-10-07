@@ -1,7 +1,7 @@
 //! Module for the data set generation, i.e., random walks, for the node2vec
 //! implementation in burn.
 
-use burn::data::dataset::Dataset;
+use burn::data::dataset::{Dataset, DatasetError};
 
 /// Dataset wrapper for random walk sequences
 pub struct WalkDataset {
@@ -62,8 +62,8 @@ impl Dataset<Vec<u32>> for WalkDataset {
     /// ### Returns
     ///
     /// The given random walk
-    fn get(&self, index: usize) -> Option<Vec<u32>> {
-        self.walks.get(index).cloned()
+    fn get(&self, index: usize) -> Result<Vec<u32>, DatasetError> {
+        Ok(self.walks[index].clone())
     }
 
     /// Get the total length

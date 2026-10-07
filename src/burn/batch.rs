@@ -8,11 +8,11 @@ use burn::tensor::{Int, TensorData};
 
 /// Batch structure for skip-gram training containing center-context pairs
 #[derive(Clone, Debug)]
-pub struct SkipGramBatch<B: Backend> {
+pub struct SkipGramBatch {
     /// The center word tokens (what we embed)
-    pub centers: Tensor<B, 1, Int>,
+    pub centers: Tensor<1, Int>,
     /// The context word tokens (what we predict)
-    pub contexts: Tensor<B, 1, Int>,
+    pub contexts: Tensor<1, Int>,
 }
 
 /// Batcher that converts random walks into skip-gram training pairs
@@ -41,7 +41,7 @@ impl SkipGramBatcher {
     }
 }
 
-impl<B: Backend> Batcher<B, Vec<u32>, SkipGramBatch<B>> for SkipGramBatcher {
+impl Batcher<Vec<u32>, SkipGramBatch> for SkipGramBatcher {
     /// Generate a batch
     ///
     /// ### Params
@@ -52,7 +52,7 @@ impl<B: Backend> Batcher<B, Vec<u32>, SkipGramBatch<B>> for SkipGramBatcher {
     /// ### Return
     ///
     /// The `SkipGramBatch` with centers and contexts.
-    fn batch(&self, items: Vec<Vec<u32>>, device: &B::Device) -> SkipGramBatch<B> {
+    fn batch(&self, items: Vec<Vec<u32>>, device: &Device) -> SkipGramBatch {
         let capacity = items.iter().map(|w| w.len() * self.window_size * 2).sum();
         let mut centers = Vec::with_capacity(capacity);
         let mut contexts = Vec::with_capacity(capacity);
@@ -72,12 +72,12 @@ impl<B: Backend> Batcher<B, Vec<u32>, SkipGramBatch<B>> for SkipGramBatcher {
         }
 
         let n = centers.len();
-        let centers_data = TensorData::new(centers, [n]).convert::<B::IntElem>();
-        let contexts_data = TensorData::new(contexts, [n]).convert::<B::IntElem>();
+        let centers_data = TensorData::new(centers, [n]);
+        let contexts_data = TensorData::new(contexts, [n]);
 
         SkipGramBatch {
-            centers: Tensor::from_data(centers_data, device),
-            contexts: Tensor::from_data(contexts_data, device),
+            centers: Tensor::from_ints(centers_data, device),
+            contexts: Tensor::from_ints(contexts_data, device),
         }
     }
 }
