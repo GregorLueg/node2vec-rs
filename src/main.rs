@@ -1,67 +1,5 @@
 use node2vec_rs::prelude::*;
 
-#[cfg(feature = "tch-cpu")]
-mod tch_cpu {
-    use burn::tensor::Device;
-    use node2vec_rs::prelude::*;
-
-    pub fn run(
-        output: &str,
-        model_config: &SkipGramConfig,
-        training_config: &TrainingConfig,
-        train_walks: &[Vec<u32>],
-        valid_walks: &[Vec<u32>],
-        seed: &usize,
-    ) {
-        let device = Device::libtorch();
-        device.seed(*seed as u64);
-        let model = train(
-            output,
-            model_config,
-            training_config,
-            train_walks,
-            valid_walks,
-            device,
-            *seed,
-        );
-        let embeddings_path = std::path::Path::new(output).join("embeddings.csv");
-        model
-            .write_embeddings_csv(embeddings_path.to_str().unwrap())
-            .expect("Failed to write embeddings");
-    }
-}
-
-#[cfg(feature = "tch-mps")]
-mod tch_mps {
-    use burn::tensor::Device;
-    use node2vec_rs::prelude::*;
-
-    pub fn run(
-        output: &str,
-        model_config: &SkipGramConfig,
-        training_config: &TrainingConfig,
-        train_walks: &[Vec<u32>],
-        valid_walks: &[Vec<u32>],
-        seed: &usize,
-    ) {
-        let device = Device::libtorch_mps();
-        device.seed(*seed as u64);
-        let model = train(
-            output,
-            model_config,
-            training_config,
-            train_walks,
-            valid_walks,
-            device,
-            *seed,
-        );
-        let embeddings_path = std::path::Path::new(output).join("embeddings.csv");
-        model
-            .write_embeddings_csv(embeddings_path.to_str().unwrap())
-            .expect("Failed to write embeddings");
-    }
-}
-
 #[cfg(any(feature = "wgpu", feature = "metal", feature = "vulkan"))]
 mod wgpu {
     use burn::tensor::{Device, DeviceKind};
@@ -287,26 +225,6 @@ fn main() {
                 let train_walks = walks[..split_idx].to_vec();
                 let valid_walks = walks[split_idx..].to_vec();
                 let model_config = SkipGramConfig::new(vocab_size, args.embedding_dim);
-
-                #[cfg(feature = "tch-cpu")]
-                tch_cpu::run(
-                    &args.output,
-                    &model_config,
-                    &training_config,
-                    &train_walks,
-                    &valid_walks,
-                    &seed,
-                );
-
-                #[cfg(feature = "tch-mps")]
-                tch_mps::run(
-                    &args.output,
-                    &model_config,
-                    &training_config,
-                    &train_walks,
-                    &valid_walks,
-                    &seed,
-                );
 
                 #[cfg(feature = "flex")]
                 flex::run(

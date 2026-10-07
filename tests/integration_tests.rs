@@ -274,7 +274,7 @@ fn test_karate_cpu_community_structure() {
 //////////
 
 #[test]
-#[cfg(feature = "tch-cpu")]
+#[cfg(feature = "flex")]
 fn test_karate_end_to_end_training() {
     use burn::tensor::Device;
 
@@ -301,7 +301,7 @@ fn test_karate_end_to_end_training() {
         q: 1.0,
     };
 
-    let device = Device::libtorch();
+    let device = Device::flex();
     device.seed(42);
 
     let model = train(
@@ -324,7 +324,7 @@ fn test_karate_end_to_end_training() {
 }
 
 #[test]
-#[cfg(feature = "tch-cpu")]
+#[cfg(feature = "flex")]
 fn test_karate_community_structure() {
     use burn::tensor::Device;
 
@@ -352,7 +352,7 @@ fn test_karate_community_structure() {
         q: 1.0,
     };
 
-    let device = Device::libtorch();
+    let device = Device::flex();
     device.seed(42);
 
     let model = train(

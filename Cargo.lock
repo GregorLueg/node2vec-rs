@@ -1059,8 +1059,6 @@ dependencies = [
  "burn-flex",
  "burn-fusion",
  "burn-std",
- "burn-tch",
- "tch",
 ]
 
 [[package]]
