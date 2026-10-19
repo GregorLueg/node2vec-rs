@@ -11,7 +11,7 @@ training backends:
 - **CPU** (default) -- a Gensim-style word2vec implementation with SIMD-accelerated
   linear algebra. Fast, lightweight, no framework dependencies.
 - **Burn** -- uses the [Burn](https://github.com/tracel-ai/burn) deep learning
-  framework with pluggable backends (libtorch, flex, wgpu).
+  framework with pluggable backends (flex, wgpu, Metal, Vulkan).
 
 Heterogeneous graphs are covered too: hand it a node table with types and a
 metapath and you get [metapath2vec](https://dl.acm.org/doi/10.1145/3097983.3098036)
@@ -57,17 +57,17 @@ deterministic results. The core idea here is to use the
 The Burn backend supports multiple compute backends via feature flags:
 
 ```bash
-# libtorch CPU (default Burn backend)
-cargo run --release --features tch-cpu -- --backend burn --input tests/data/karate.csv
+# flex (CPU)
+cargo run --release --features flex -- --backend burn --input tests/data/karate.csv
 
-# libtorch MPS (Apple Silicon GPU)
-cargo run --release --features tch-mps -- --backend burn --input tests/data/karate.csv
-
-# wgpu
+# wgpu, graphics API picked at runtime
 cargo run --release --features wgpu -- --backend burn --input tests/data/karate.csv
 
-# flex
-cargo run --release --features flex -- --backend burn --input tests/data/karate.csv
+# Metal (Apple Silicon)
+cargo run --release --features metal -- --backend burn --input tests/data/karate.csv
+
+# Vulkan (needs the Vulkan SDK on macOS)
+cargo run --release --features vulkan -- --backend burn --input tests/data/karate.csv
 ```
 
 ## Feature Flags
@@ -75,12 +75,10 @@ cargo run --release --features flex -- --backend burn --input tests/data/karate.
 | Feature | Description |
 |---------|-------------|
 | `cpu` (default) | Gensim-style CPU backend |
-| `tch-cpu` | Burn + libtorch CPU |
-| `tch-mps` | Burn + libtorch MPS (Apple Silicon) |
-| `flex` | Burn + flex CPU framework |
-| `wgpu` | Burn + wgpu |
-| `metal` | Burn + wgpu (Metal) |
-| `vulkan` | Burn + wgpu (Vulkan) |
+| `flex` | Burn + flex CPU backend |
+| `wgpu` | Burn + wgpu, graphics API picked at runtime |
+| `metal` | Burn + wgpu pinned to Metal |
+| `vulkan` | Burn + wgpu pinned to Vulkan |
 
 ## Input Format
 
@@ -195,10 +193,10 @@ cargo run --release -- \
   --q 0.5
 ```
 
-Using the Burn backend with libtorch:
+Using the Burn backend with flex:
 
 ```bash
-cargo run --release --features tch-cpu -- \
+cargo run --release --features flex -- \
   --backend burn \
   --input tests/data/karate.csv \
   --embedding-dim 64 \
@@ -223,10 +221,7 @@ The Burn backend is deterministic for a given seed and backend configuration.
 cargo test
 
 # Run Burn tests
-cargo test --features tch-cpu
-
-# Run all tests
-cargo test --all-features
+cargo test --features flex
 
 # With output
 cargo test -- --nocapture

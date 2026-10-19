@@ -1,6 +1,26 @@
 # Changelog
 
-## [0.3.0] - unreleased
+## [0.4.0] - unreleased
+
+### Changed
+
+- Burn 0.21 to 0.22. **Breaking:** the backend generic is gone from the Burn
+  API. `SkipGramModel`, `SkipGramBatch`, `train` and `sample_negatives` take a
+  burn `Device` instead of a `B: Backend` parameter.
+- Saved Burn models are `model.bpk`, not `model.mpk`.
+- `metal` and `vulkan` now pin their graphics API; `wgpu` lets the runtime
+  pick. Before, all three ran on whatever wgpu chose.
+- Burn is pulled without its default features. `burn-train` (TUI and system
+  metrics) is no longer a dependency.
+- faer 0.23 to 0.24.
+- CI runs the Burn tests on `flex`.
+
+### Removed
+
+- **Breaking:** the `tch-cpu` and `tch-mps` features. Use `flex` on the CPU
+  and `metal` on Apple Silicon.
+
+## [0.3.0] - 2026-09-17
 
 ### Added
 
