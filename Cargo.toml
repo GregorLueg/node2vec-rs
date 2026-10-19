@@ -1,6 +1,6 @@
 [package]
 name = "node2vec-rs"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 authors = ["Gregor Lueg <gregorlueg@me.com>"]
 license = "MIT"
@@ -8,7 +8,11 @@ repository = "https://github.com/GregorLueg/node2vec-rs"
 description = "A node2vec implementation in Rust via the Burn tensor framework."
 
 [dependencies]
-burn = { version = "0.22.0", features = ["dataset", "train"], optional = true }
+burn = { version = "0.22.0", default-features = false, features = [
+    "std",
+    "dataset",
+    "optim",
+], optional = true }
 clap = { version = "4.5.53", features = ["derive"] }
 csv = "1.4.0"
 document-features = "0.2.12"
@@ -31,10 +35,10 @@ tempfile = "3.23.0"
 default = ["cpu"]
 cpu = []
 burn = ["dep:burn"]
-flex = ["burn", "burn/flex"]
-wgpu = ["burn", "burn/wgpu"]
-metal = ["burn", "burn/wgpu"]
-vulkan = ["burn", "burn/wgpu"]
+flex = ["burn", "burn/flex", "burn/simd", "burn/rayon"]
+wgpu = ["burn", "burn/wgpu", "burn/fusion", "burn/autotune"]
+metal = ["burn", "burn/metal", "burn/fusion", "burn/autotune"]
+vulkan = ["burn", "burn/vulkan", "burn/fusion", "burn/autotune"]
 
 [package.metadata.docs.rs]
 features = ["cpu", "burn"]

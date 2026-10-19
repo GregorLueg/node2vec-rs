@@ -13,6 +13,13 @@ mod wgpu {
         valid_walks: &[Vec<u32>],
         seed: &usize,
     ) {
+        // `metal` and `vulkan` pin the graphics API; plain `wgpu` lets the
+        // runtime pick. If several are enabled, the most specific wins.
+        #[cfg(feature = "metal")]
+        let device = Device::metal(DeviceKind::default());
+        #[cfg(all(feature = "vulkan", not(feature = "metal")))]
+        let device = Device::vulkan(DeviceKind::default());
+        #[cfg(not(any(feature = "metal", feature = "vulkan")))]
         let device = Device::wgpu(DeviceKind::default());
         device.seed(*seed as u64);
         let model = train(
