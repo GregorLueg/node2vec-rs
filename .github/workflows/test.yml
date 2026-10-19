@@ -14,7 +14,7 @@ jobs:
   test:
     uses: GregorLueg/personal-actions/.github/workflows/rust-test.yml@v1
     with:
-      cpu-args: '--features tch-cpu'
+      cpu-args: '--features flex'
       # No GPU lane here. An empty gpu-args skips the job entirely.
       gpu-args: ''
     secrets: inherit

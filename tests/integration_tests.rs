@@ -274,11 +274,9 @@ fn test_karate_cpu_community_structure() {
 //////////
 
 #[test]
-#[cfg(feature = "tch-cpu")]
+#[cfg(feature = "flex")]
 fn test_karate_end_to_end_training() {
-    use burn::backend::libtorch::{LibTorch, LibTorchDevice};
-    use burn::backend::Autodiff;
-    use burn::prelude::Backend;
+    use burn::tensor::Device;
 
     let graph = read_graph(KARATE_CSV, false, 1.0, 1.0).unwrap();
     let walks = graph.generate_walks(5, 10, 42);
@@ -303,10 +301,10 @@ fn test_karate_end_to_end_training() {
         q: 1.0,
     };
 
-    let device = LibTorchDevice::Cpu;
-    LibTorch::<f32>::seed(&device, 42);
+    let device = Device::flex();
+    device.seed(42);
 
-    let model = train::<Autodiff<LibTorch>>(
+    let model = train(
         "/tmp/karate_test",
         &model_config,
         &training_config,
@@ -322,15 +320,13 @@ fn test_karate_end_to_end_training() {
     assert_eq!(embeddings[0].len(), 8);
 
     // Check model output
-    assert!(std::path::Path::new("/tmp/karate_test/model.mpk").exists());
+    assert!(std::path::Path::new("/tmp/karate_test/model.bpk").exists());
 }
 
 #[test]
-#[cfg(feature = "tch-cpu")]
+#[cfg(feature = "flex")]
 fn test_karate_community_structure() {
-    use burn::backend::libtorch::{LibTorch, LibTorchDevice};
-    use burn::backend::Autodiff;
-    use burn::prelude::Backend;
+    use burn::tensor::Device;
 
     let graph = read_graph(KARATE_CSV, false, 1.0, 1.0).unwrap();
     let walks = graph.generate_walks(10, 80, 42);
@@ -356,10 +352,10 @@ fn test_karate_community_structure() {
         q: 1.0,
     };
 
-    let device = LibTorchDevice::Cpu;
-    LibTorch::<f32>::seed(&device, 42);
+    let device = Device::flex();
+    device.seed(42);
 
-    let model = train::<Autodiff<LibTorch>>(
+    let model = train(
         "/tmp/karate_community_test",
         &model_config,
         &training_config,

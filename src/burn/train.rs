@@ -3,11 +3,9 @@
 
 use burn::config::Config;
 use burn::data::dataloader::DataLoaderBuilder;
-use burn::module::AutodiffModule;
-use burn::optim::{AdamConfig, GradientsParams, Optimizer};
-use burn::prelude::{ElementConversion, Module};
-use burn::record::CompactRecorder;
-use burn::tensor::{backend::AutodiffBackend, backend::Backend, Int, Tensor, TensorData};
+use burn::optim::{AdamConfig, GradientsParams};
+use burn::prelude::Module;
+use burn::tensor::{Device, Int, Tensor, TensorData};
 use indicatif::{ProgressBar, ProgressStyle};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -29,22 +27,19 @@ use crate::Args;
 /// ### Returns
 ///
 /// Tensor of negative examples
-pub fn sample_negatives<B: Backend>(
+pub fn sample_negatives(
     batch_size: usize,
     vocab_size: usize,
     num_neg: usize,
-    device: &B::Device,
+    device: &Device,
     seed: u64,
-) -> Tensor<B, 2, Int> {
+) -> Tensor<2, Int> {
     let mut rng = StdRng::seed_from_u64(seed);
     let data: Vec<i64> = (0..batch_size * num_neg)
         .map(|_| rng.random_range(0..vocab_size) as i64)
         .collect();
 
-    Tensor::from_data(
-        TensorData::new(data, [batch_size, num_neg]).convert::<B::IntElem>(),
-        device,
-    )
+    Tensor::from_ints(TensorData::new(data, [batch_size, num_neg]), device)
 }
 
 /// Training configuration
@@ -126,26 +121,30 @@ impl TrainingConfig {
 /// * `train_walks` - The random walks for training of the model.
 /// * `valid_walks` - The random walks for validation of the model.
 /// * `device` - The device on which to run the training.
-pub fn train<B: AutodiffBackend>(
+pub fn train(
     artifact_dir: &str,
     model_config: &SkipGramConfig,
     training_config: &TrainingConfig,
     train_walks: &[Vec<u32>],
     valid_walks: &[Vec<u32>],
-    device: B::Device,
+    device: Device,
     seed: usize,
-) -> SkipGramModel<B> {
-    let mut model = model_config.init::<B>(&device);
+) -> SkipGramModel {
+    // `backward()` needs an autodiff device; a no-op if the caller passed one.
+    let device = device.autodiff();
+    let mut model = model_config.init(&device);
     let mut optim = AdamConfig::new().init();
     let batcher = SkipGramBatcher::new(training_config.window_size);
 
     let dataloader_train = DataLoaderBuilder::new(batcher.clone())
+        .set_device(device.clone())
         .batch_size(training_config.batch_size)
         .shuffle(training_config.seed)
         .num_workers(training_config.num_workers)
         .build(WalkDataset::new(train_walks.to_vec()));
 
     let dataloader_valid = DataLoaderBuilder::new(batcher)
+        .set_device(device.clone())
         .batch_size(training_config.batch_size)
         .num_workers(training_config.num_workers)
         .build(WalkDataset::new(valid_walks.to_vec()));
@@ -178,6 +177,7 @@ pub fn train<B: AutodiffBackend>(
         train_bar.set_message(epoch.to_string());
 
         for (batch_idx, batch) in dataloader_train.iter().enumerate() {
+            let batch = batch.expect("in-memory walk dataset yields every batch");
             let neg_seed = seed.wrapping_mul(epoch + 1).wrapping_add(batch_idx);
             let batch_size = batch.centers.dims()[0];
             let negatives = sample_negatives(
@@ -192,7 +192,7 @@ pub fn train<B: AutodiffBackend>(
                 .forward(batch.centers, batch.contexts, negatives)
                 .mean();
 
-            let loss_scalar: f64 = loss.clone().into_scalar().elem();
+            let loss_scalar: f64 = loss.clone().into_scalar::<f64>();
             total_loss += loss_scalar;
             num_batches += 1;
 
@@ -220,6 +220,7 @@ pub fn train<B: AutodiffBackend>(
         );
 
         for (batch_idx, batch) in dataloader_valid.iter().enumerate() {
+            let batch = batch.expect("in-memory walk dataset yields every batch");
             let neg_seed = seed
                 .wrapping_mul(epoch + 1)
                 .wrapping_add(batch_idx)
@@ -236,7 +237,7 @@ pub fn train<B: AutodiffBackend>(
                 .forward(batch.centers, batch.contexts, negatives)
                 .mean();
 
-            let loss_scalar: f64 = loss.into_scalar().elem();
+            let loss_scalar: f64 = loss.into_scalar::<f64>();
             total_loss += loss_scalar;
             num_batches += 1;
 
@@ -256,7 +257,7 @@ pub fn train<B: AutodiffBackend>(
     std::fs::create_dir_all(artifact_dir).ok();
     model
         .clone()
-        .save_file(format!("{artifact_dir}/model"), &CompactRecorder::new())
+        .save_file(format!("{artifact_dir}/model"))
         .expect("Failed to save model");
 
     model

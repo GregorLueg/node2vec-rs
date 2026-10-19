@@ -3,7 +3,7 @@
 use burn::config::Config;
 use burn::module::Module;
 use burn::nn::{Embedding, EmbeddingConfig};
-use burn::tensor::{activation, backend::Backend, Int, Tensor};
+use burn::tensor::{activation, Device, Int, Tensor};
 use std::fs::File;
 use std::io::Write;
 
@@ -12,11 +12,11 @@ use std::io::Write;
 /// Uses negative sampling to train word embeddings by predicting context words
 /// from target words.
 #[derive(Module, Debug)]
-pub struct SkipGramModel<B: Backend> {
+pub struct SkipGramModel {
     /// The target embedding
-    pub target_embd: Embedding<B>,
+    pub target_embd: Embedding,
     /// The context embedding
-    pub context_embd: Embedding<B>,
+    pub context_embd: Embedding,
     /// The vocabulary size, i.e., number of nodes in node2vec
     pub vocab_size: usize,
     /// The embedding dimension
@@ -42,7 +42,7 @@ impl SkipGramConfig {
     /// ### Returns
     ///
     /// Initialised model
-    pub fn init<B: Backend>(&self, device: &B::Device) -> SkipGramModel<B> {
+    pub fn init(&self, device: &Device) -> SkipGramModel {
         // Scale initialisation to prevent sigmoid saturation
         // With scale 1/sqrt(embedding_dim), expected dot product magnitude is O(1)
         let init_scale = 1.0 / (self.embedding_dim as f64).sqrt();
@@ -61,7 +61,7 @@ impl SkipGramConfig {
             .init(device);
 
         // Force allocation on device without moving data off
-        let dummy_idx = Tensor::<B, 2, Int>::zeros([1, 1], device);
+        let dummy_idx = Tensor::<2, Int>::zeros([1, 1], device);
         let _ = target_embd.forward(dummy_idx.clone());
         let _ = context_embd.forward(dummy_idx);
 
@@ -74,7 +74,7 @@ impl SkipGramConfig {
     }
 }
 
-impl<B: Backend> SkipGramModel<B> {
+impl SkipGramModel {
     /// Forward pass computing the loss for a batch.
     ///
     /// ### Params
@@ -88,12 +88,12 @@ impl<B: Backend> SkipGramModel<B> {
     /// Loss tensor `[batch_size]`
     pub fn forward(
         &self,
-        centers: Tensor<B, 1, Int>,
-        contexts: Tensor<B, 1, Int>,
-        negatives: Tensor<B, 2, Int>,
-    ) -> Tensor<B, 1> {
-        let centers_2d: Tensor<B, 2, Int> = centers.clone().unsqueeze_dim(1);
-        let contexts_2d: Tensor<B, 2, Int> = contexts.unsqueeze_dim(1);
+        centers: Tensor<1, Int>,
+        contexts: Tensor<1, Int>,
+        negatives: Tensor<2, Int>,
+    ) -> Tensor<1> {
+        let centers_2d: Tensor<2, Int> = centers.clone().unsqueeze_dim(1);
+        let contexts_2d: Tensor<2, Int> = contexts.unsqueeze_dim(1);
 
         let batch_size = centers.dims()[0];
         let num_neg = negatives.dims()[1];
@@ -101,28 +101,28 @@ impl<B: Backend> SkipGramModel<B> {
         // [batch_size, 1, embedding_dim] -> [batch_size, embedding_dim]
         let center_embed_3d = self.target_embd.forward(centers_2d);
         let embedding_dim = center_embed_3d.dims()[2];
-        let center_embed: Tensor<B, 2> = center_embed_3d.reshape([batch_size, embedding_dim]);
+        let center_embed: Tensor<2> = center_embed_3d.reshape([batch_size, embedding_dim]);
 
         let context_embed_3d = self.context_embd.forward(contexts_2d);
-        let context_embed: Tensor<B, 2> = context_embed_3d.reshape([batch_size, embedding_dim]);
+        let context_embed: Tensor<2> = context_embed_3d.reshape([batch_size, embedding_dim]);
 
         // [batch_size, embedding_dim] -> sum_dim(1) -> [batch_size, 1] -> reshape -> [batch_size]
-        let pos_dot_2d: Tensor<B, 2> = (center_embed.clone() * context_embed).sum_dim(1);
-        let pos_dot: Tensor<B, 1> = pos_dot_2d.reshape([batch_size]);
+        let pos_dot_2d: Tensor<2> = (center_embed.clone() * context_embed).sum_dim(1);
+        let pos_dot: Tensor<1> = pos_dot_2d.reshape([batch_size]);
 
-        let neg_embed: Tensor<B, 3> = self.context_embd.forward(negatives);
-        let center_expanded: Tensor<B, 3> = center_embed.unsqueeze_dim(1);
+        let neg_embed: Tensor<3> = self.context_embd.forward(negatives);
+        let center_expanded: Tensor<3> = center_embed.unsqueeze_dim(1);
 
         // [batch_size, num_neg, embedding_dim] -> sum_dim(2) -> [batch_size, num_neg]
-        let neg_dot: Tensor<B, 2> = (center_expanded * neg_embed)
+        let neg_dot: Tensor<2> = (center_expanded * neg_embed)
             .sum_dim(2)
             .reshape([batch_size, num_neg]);
 
         // Loss calculation
-        let pos_loss: Tensor<B, 1> = activation::log_sigmoid(pos_dot).neg();
+        let pos_loss: Tensor<1> = activation::log_sigmoid(pos_dot).neg();
 
-        let neg_loss_2d: Tensor<B, 2> = activation::log_sigmoid(neg_dot.neg()).sum_dim(1);
-        let neg_loss: Tensor<B, 1> = neg_loss_2d.reshape([batch_size]).neg();
+        let neg_loss_2d: Tensor<2> = activation::log_sigmoid(neg_dot.neg()).sum_dim(1);
+        let neg_loss: Tensor<1> = neg_loss_2d.reshape([batch_size]).neg();
 
         pos_loss + neg_loss
     }
@@ -166,14 +166,14 @@ impl<B: Backend> SkipGramModel<B> {
     }
 
     /// Internal helper to extract embeddings from an embedding layer
-    fn extract_embeddings(&self, embd: &Embedding<B>) -> Vec<Vec<f32>> {
+    fn extract_embeddings(&self, embd: &Embedding) -> Vec<Vec<f32>> {
         // Burn's Embedding stores weights as [vocab_size, embedding_dim] row-major
         let weights = embd.weight.clone();
         let [_, embedding_dim] = weights.dims();
 
         // Single extraction - O(1) tensor operations
         let data = weights.to_data();
-        let values: Vec<f32> = data.to_vec().unwrap();
+        let values: Vec<f32> = data.try_to_vec().unwrap();
 
         // Chunk into rows - this is pure CPU work, very fast
         values

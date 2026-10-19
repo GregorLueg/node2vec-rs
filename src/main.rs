@@ -1,81 +1,8 @@
 use node2vec_rs::prelude::*;
 
-#[cfg(feature = "tch-cpu")]
-mod tch_cpu {
-    use burn::backend::{
-        libtorch::{LibTorch, LibTorchDevice},
-        Autodiff,
-    };
-    use node2vec_rs::prelude::*;
-
-    pub fn run(
-        output: &str,
-        model_config: &SkipGramConfig,
-        training_config: &TrainingConfig,
-        train_walks: &[Vec<u32>],
-        valid_walks: &[Vec<u32>],
-        seed: &usize,
-    ) {
-        use burn::prelude::Backend;
-        let device = LibTorchDevice::Cpu;
-        LibTorch::<f32>::seed(&device, *seed as u64);
-        let model = train::<Autodiff<LibTorch>>(
-            output,
-            model_config,
-            training_config,
-            train_walks,
-            valid_walks,
-            device,
-            *seed,
-        );
-        let embeddings_path = std::path::Path::new(output).join("embeddings.csv");
-        model
-            .write_embeddings_csv(embeddings_path.to_str().unwrap())
-            .expect("Failed to write embeddings");
-    }
-}
-
-#[cfg(feature = "tch-mps")]
-mod tch_mps {
-    use burn::backend::{
-        libtorch::{LibTorch, LibTorchDevice},
-        Autodiff,
-    };
-    use node2vec_rs::prelude::*;
-
-    pub fn run(
-        output: &str,
-        model_config: &SkipGramConfig,
-        training_config: &TrainingConfig,
-        train_walks: &[Vec<u32>],
-        valid_walks: &[Vec<u32>],
-        seed: &usize,
-    ) {
-        use burn::prelude::Backend;
-        let device = LibTorchDevice::Mps;
-        LibTorch::<f32>::seed(&device, *seed as u64);
-        let model = train::<Autodiff<LibTorch>>(
-            output,
-            model_config,
-            training_config,
-            train_walks,
-            valid_walks,
-            device,
-            *seed,
-        );
-        let embeddings_path = std::path::Path::new(output).join("embeddings.csv");
-        model
-            .write_embeddings_csv(embeddings_path.to_str().unwrap())
-            .expect("Failed to write embeddings");
-    }
-}
-
 #[cfg(any(feature = "wgpu", feature = "metal", feature = "vulkan"))]
 mod wgpu {
-    use burn::backend::{
-        wgpu::{Wgpu, WgpuDevice},
-        Autodiff,
-    };
+    use burn::tensor::{Device, DeviceKind};
     use node2vec_rs::prelude::*;
 
     pub fn run(
@@ -86,10 +13,16 @@ mod wgpu {
         valid_walks: &[Vec<u32>],
         seed: &usize,
     ) {
-        use burn::prelude::Backend;
-        let device = WgpuDevice::default();
-        Wgpu::<f32>::seed(&device, *seed as u64);
-        let model = train::<Autodiff<Wgpu>>(
+        // `metal` and `vulkan` pin the graphics API; plain `wgpu` lets the
+        // runtime pick. If several are enabled, the most specific wins.
+        #[cfg(feature = "metal")]
+        let device = Device::metal(DeviceKind::default());
+        #[cfg(all(feature = "vulkan", not(feature = "metal")))]
+        let device = Device::vulkan(DeviceKind::default());
+        #[cfg(not(any(feature = "metal", feature = "vulkan")))]
+        let device = Device::wgpu(DeviceKind::default());
+        device.seed(*seed as u64);
+        let model = train(
             output,
             model_config,
             training_config,
@@ -107,10 +40,7 @@ mod wgpu {
 
 #[cfg(feature = "flex")]
 mod flex {
-    use burn::backend::{
-        flex::{Flex, FlexDevice},
-        Autodiff,
-    };
+    use burn::tensor::Device;
     use node2vec_rs::prelude::*;
 
     pub fn run(
@@ -121,10 +51,9 @@ mod flex {
         valid_walks: &[Vec<u32>],
         seed: &usize,
     ) {
-        use burn::prelude::Backend;
-        let device = FlexDevice;
-        Flex::<f32>::seed(&device, *seed as u64);
-        let model = train::<Autodiff<Flex>>(
+        let device = Device::flex();
+        device.seed(*seed as u64);
+        let model = train(
             output,
             model_config,
             training_config,
@@ -303,26 +232,6 @@ fn main() {
                 let train_walks = walks[..split_idx].to_vec();
                 let valid_walks = walks[split_idx..].to_vec();
                 let model_config = SkipGramConfig::new(vocab_size, args.embedding_dim);
-
-                #[cfg(feature = "tch-cpu")]
-                tch_cpu::run(
-                    &args.output,
-                    &model_config,
-                    &training_config,
-                    &train_walks,
-                    &valid_walks,
-                    &seed,
-                );
-
-                #[cfg(feature = "tch-mps")]
-                tch_mps::run(
-                    &args.output,
-                    &model_config,
-                    &training_config,
-                    &train_walks,
-                    &valid_walks,
-                    &seed,
-                );
 
                 #[cfg(feature = "flex")]
                 flex::run(
