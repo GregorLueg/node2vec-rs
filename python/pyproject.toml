@@ -1,0 +1,45 @@
+[build-system]
+requires = ["maturin>=1.15,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "node2vec-rs"
+description = "node2vec and metapath2vec graph embeddings, in Rust."
+license = { text = "MIT" }
+authors = [{ name = "Gregor Lueg", email = "gregorlueg@me.com" }]
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.23", "beartype>=0.19"]
+dynamic = ["version"]
+keywords = ["node2vec", "metapath2vec", "graph", "embedding", "knowledge-graph"]
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+
+[project.urls]
+Repository = "https://github.com/GregorLueg/node2vec-rs"
+
+[dependency-groups]
+dev = ["maturin>=1.15,<2.0", "pytest>=8", "ruff>=0.9", "ty>=0.0.1"]
+
+[tool.maturin]
+manifest-path = "Cargo.toml"
+module-name = "node2vec_rs._node2vec_rs"
+python-source = "."
+strip = true
+include = ["node2vec_rs/py.typed", "node2vec_rs/*.pyi"]
+exclude = ["node2vec_rs/__pycache__/**"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["node2vec_rs"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

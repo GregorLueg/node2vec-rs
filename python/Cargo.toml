@@ -1,0 +1,34 @@
+[package]
+# Versioned independently of `node2vec-rs`, so a Python-only fix does not force
+# a crates.io release of an unchanged core.
+name = "node2vec-rs-py"
+version = "0.1.0"
+edition = "2021"
+authors = ["Gregor Lueg <gregorlueg@me.com>"]
+license = "MIT"
+description = "Python bindings for node2vec-rs"
+publish = false
+
+# Own workspace root, so cargo does not walk up into the core crate.
+[workspace]
+
+[lib]
+name = "_node2vec_rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+node2vec-rs = { path = "..", default-features = false, features = ["cpu"] }
+numpy = "0.29"
+pyo3 = { version = "0.29", features = ["extension-module", "abi3-py310"] }
+rayon = "1.11"
+
+# Profiles are only read from the workspace root, so the core's do not reach
+# here.
+[profile.release]
+lto = "thin"
+codegen-units = 1
+panic = "unwind"
+
+# `maturin develop` builds dev by default, and debug-speed training is useless.
+[profile.dev]
+opt-level = 2
