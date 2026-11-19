@@ -64,6 +64,17 @@ pub enum Node2VecError {
         type_name: String,
     },
 
+    /// Every metapath walk dead-ended on its first hop, leaving nothing to
+    /// train on.
+    #[error(
+        "All {attempted} metapath walks dead-ended on the first hop; no node of the \
+         starting type has a neighbour of the next type in the schema."
+    )]
+    NoWalks {
+        /// Walks attempted
+        attempted: usize,
+    },
+
     /// An in-memory edge references a node index outside the node table.
     #[error("Edge endpoint {index} is out of range for {n_nodes} nodes.")]
     EdgeOutOfRange {

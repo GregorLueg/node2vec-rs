@@ -1,7 +1,6 @@
 //! CSV reader utilities.
 
 use csv::Reader;
-use rustc_hash::FxHashMap;
 use std::fs::File;
 
 use crate::errors::Node2VecError;
@@ -28,9 +27,9 @@ pub fn read_graph(
     p: f32,
     q: f32,
 ) -> Result<Node2VecGraph, Node2VecError> {
-    let mut adjacency = FxHashMap::default();
     let file = File::open(path)?;
     let mut rdr = Reader::from_reader(file);
+    let mut edges = Vec::new();
 
     for (row, result) in rdr.records().enumerate() {
         let record = result?;
@@ -48,25 +47,10 @@ pub fn read_graph(
         let to = parse(&record[1])?;
         let weight: f32 = record.get(2).and_then(|s| s.parse().ok()).unwrap_or(1.0);
 
-        adjacency
-            .entry(from)
-            .or_insert_with(Vec::new)
-            .push((to, weight));
-
-        if !directed {
-            adjacency
-                .entry(to)
-                .or_insert_with(Vec::new)
-                .push((from, weight));
-        }
+        edges.push((from, to, weight));
     }
 
-    let transition_probs = compute_transition_prob(&adjacency, p, q);
-
-    Ok(Node2VecGraph {
-        adjacency,
-        transition_probs,
-    })
+    Ok(Node2VecGraph::from_edges(&edges, directed, p, q))
 }
 
 #[cfg(test)]

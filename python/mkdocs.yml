@@ -1,0 +1,77 @@
+site_name: node2vec-rs
+site_description: node2vec and metapath2vec graph embeddings, in Rust.
+site_url: https://gregorlueg.github.io/node2vec-rs/
+repo_url: https://github.com/GregorLueg/node2vec-rs
+repo_name: GregorLueg/node2vec-rs
+edit_uri: edit/main/python/docs/
+copyright: MIT licensed
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - content.code.copy
+    - content.action.edit
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Light mode
+
+nav:
+  - Home: index.md
+  - node2vec: node2vec.md
+  - metapath2vec: metapath2vec.md
+  - API reference: api.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          # `node2vec_rs` sits next to mkdocs.yml, not under `docs/`.
+          paths: ["."]
+          options:
+            docstring_style: google
+            docstring_section_style: table
+            separate_signature: true
+            show_signature_annotations: true
+            signature_crossrefs: true
+            members_order: source
+            show_root_heading: true
+            show_root_full_path: false
+            show_source: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            heading_level: 2
+            filters: ["!^_"]
+
+# `mkdocs serve` picks up a docstring edit without a restart.
+watch:
+  - node2vec_rs
