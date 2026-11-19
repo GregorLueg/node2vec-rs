@@ -21,7 +21,7 @@ fn test_karate_graph_loads() {
 fn test_karate_walks_generation() {
     let graph = read_graph(KARATE_CSV, false, 1.0, 1.0).unwrap();
 
-    let walks = graph.generate_walks(10, 20, 42);
+    let walks = graph.generate_walks(10, 20, 42, false);
 
     // Should generate 10 walks per node
     assert_eq!(walks.len(), 34 * 10);
@@ -67,7 +67,7 @@ fn test_karate_cpu_end_to_end() {
         .unwrap_or(1);
 
     let graph = read_graph(KARATE_CSV, false, 1.0, 1.0).unwrap();
-    let walks = graph.generate_walks(5, 10, 42);
+    let walks = graph.generate_walks(5, 10, 42, false);
 
     let vocab_size = graph.adjacency.keys().max().unwrap() + 1;
     let neg_table = NegativeTable::Global(create_negative_table(
@@ -120,7 +120,7 @@ fn test_karate_cpu_community_structure() {
         .unwrap_or(1);
 
     let graph = read_graph(KARATE_CSV, false, 1.0, 1.0).unwrap();
-    let walks = graph.generate_walks(10, 80, 42);
+    let walks = graph.generate_walks(10, 80, 42, false);
 
     let vocab_size = graph.adjacency.keys().max().unwrap() + 1;
     let neg_table = NegativeTable::Global(create_negative_table(
@@ -279,7 +279,7 @@ fn test_karate_end_to_end_training() {
     use burn::tensor::Device;
 
     let graph = read_graph(KARATE_CSV, false, 1.0, 1.0).unwrap();
-    let walks = graph.generate_walks(5, 10, 42);
+    let walks = graph.generate_walks(5, 10, 42, false);
 
     let split = (walks.len() as f32 * 0.8) as usize;
     let train_walks = walks[..split].to_vec();
@@ -329,7 +329,7 @@ fn test_karate_community_structure() {
     use burn::tensor::Device;
 
     let graph = read_graph(KARATE_CSV, false, 1.0, 1.0).unwrap();
-    let walks = graph.generate_walks(10, 80, 42);
+    let walks = graph.generate_walks(10, 80, 42, false);
 
     let split = (walks.len() as f32 * 0.8) as usize;
     let train_walks = walks[..split].to_vec();
@@ -497,7 +497,7 @@ fn test_het_graph_loads_and_sorts_by_type() {
 fn test_het_metapath_walks_respect_the_schema() {
     let graph = read_het_graph(HET_NODES, HET_EDGES, false).unwrap();
     let schema = Metapath::parse("gene-pathway-gene", graph.type_names()).unwrap();
-    let (walks, stats) = graph.generate_walks(&schema, 10, 11, 42).unwrap();
+    let (walks, stats) = graph.generate_walks(&schema, 10, 11, 42, false).unwrap();
 
     assert_eq!(stats.start_nodes, 4);
     assert_eq!(stats.attempted, 40);
@@ -533,7 +533,7 @@ fn test_het_end_to_end_metapath2vec() {
 
     let graph = read_het_graph(HET_NODES, HET_EDGES, false).unwrap();
     let schema = Metapath::parse("gene-pathway-gene-disease-gene", graph.type_names()).unwrap();
-    let (walks, stats) = graph.generate_walks(&schema, 40, 17, 42).unwrap();
+    let (walks, stats) = graph.generate_walks(&schema, 40, 17, 42, false).unwrap();
     assert!(!walks.is_empty(), "{stats}");
 
     let vocab_size = graph.n_nodes();

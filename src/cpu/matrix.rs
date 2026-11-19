@@ -82,6 +82,15 @@ impl Matrix {
         }
     }
 
+    /// Consumes the matrix and hands back its storage
+    ///
+    /// ### Returns
+    ///
+    /// The flat row-major data, `n_rows * n_col` long.
+    pub fn into_vec(self) -> Vec<f32> {
+        self.data
+    }
+
     /// Wraps the matrix in a thread-safe wrapper
     ///
     /// ### Returns

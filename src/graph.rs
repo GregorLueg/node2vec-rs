@@ -87,12 +87,45 @@ pub struct Node2VecGraph {
 }
 
 impl Node2VecGraph {
+    /// Build the graph from an in-memory edge list.
+    ///
+    /// The counterpart to [`crate::reader::read_graph`] for callers that
+    /// already hold the edges, e.g. an FFI layer.
+    ///
+    /// ### Params
+    ///
+    /// * `edges` - `(from, to, weight)` triplets over node ids
+    /// * `directed` - When false, every edge is inserted in both directions
+    /// * `p` - Return parameter of the biased walk
+    /// * `q` - In-out parameter of the biased walk
+    ///
+    /// ### Returns
+    ///
+    /// The graph with its adjacency and second-order transition table.
+    pub fn from_edges(edges: &[(u32, u32, f32)], directed: bool, p: f32, q: f32) -> Self {
+        let mut adjacency: FxHashMap<u32, Vec<(u32, f32)>> = FxHashMap::default();
+        for &(from, to, weight) in edges {
+            adjacency.entry(from).or_default().push((to, weight));
+            if !directed {
+                adjacency.entry(to).or_default().push((from, weight));
+            }
+        }
+
+        let transition_probs = compute_transition_prob(&adjacency, p, q);
+
+        Self {
+            adjacency,
+            transition_probs,
+        }
+    }
+
     /// Generates random walks from the graph
     ///
     /// ### Params
     /// * `walks_per_node` - Number of walks to generate starting from each node
     /// * `walk_length` - Length of each walk
     /// * `seed` - Random seed for reproducibility
+    /// * `verbose` - Draw a progress bar
     ///
     /// ### Returns
     ///
@@ -102,9 +135,14 @@ impl Node2VecGraph {
         walks_per_node: usize,
         walk_length: usize,
         seed: usize,
+        verbose: bool,
     ) -> Vec<Vec<u32>> {
         let total_walks = self.adjacency.len() * walks_per_node;
-        let progress = ProgressBar::new(total_walks as u64);
+        let progress = if verbose {
+            ProgressBar::new(total_walks as u64)
+        } else {
+            ProgressBar::hidden()
+        };
 
         progress.set_style(
             ProgressStyle::default_bar()
@@ -238,6 +276,21 @@ impl Node2VecGraph {
 mod graph_tests {
     use crate::prelude::*;
     use rustc_hash::FxHashMap;
+
+    #[test]
+    fn test_from_edges_undirected_inserts_both_directions() {
+        let g = Node2VecGraph::from_edges(&[(0, 1, 1.0), (1, 2, 2.0)], false, 1.0, 1.0);
+        assert!(g.adjacency[&1].contains(&(0, 1.0)));
+        assert!(g.adjacency[&2].contains(&(1, 2.0)));
+        assert_eq!(g.adjacency[&1].len(), 2);
+    }
+
+    #[test]
+    fn test_from_edges_directed_keeps_one_direction() {
+        let g = Node2VecGraph::from_edges(&[(0, 1, 1.0), (1, 2, 1.0)], true, 1.0, 1.0);
+        assert!(!g.adjacency.contains_key(&2));
+        assert_eq!(g.adjacency[&1], vec![(2, 1.0)]);
+    }
 
     #[test]
     fn test_transition_probs_sum_to_one() {

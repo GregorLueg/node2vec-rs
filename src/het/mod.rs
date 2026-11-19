@@ -407,6 +407,7 @@ impl HetGraph {
     /// * `walks_per_node` - Walks to start from each node of the starting type
     /// * `walk_length` - Requested number of nodes per walk, rounded up
     /// * `seed` - Random seed
+    /// * `verbose` - Draw a progress bar
     ///
     /// ### Returns
     ///
@@ -423,6 +424,7 @@ impl HetGraph {
         walks_per_node: usize,
         walk_length: usize,
         seed: usize,
+        verbose: bool,
     ) -> Result<(Vec<Vec<u32>>, WalkStats), Node2VecError> {
         let range = self.type_range(schema.start_type());
         if range.is_empty() {
@@ -439,7 +441,11 @@ impl HetGraph {
         let start_nodes = range.len();
         let attempted = start_nodes * walks_per_node;
 
-        let progress = ProgressBar::new(attempted as u64);
+        let progress = if verbose {
+            ProgressBar::new(attempted as u64)
+        } else {
+            ProgressBar::hidden()
+        };
         progress.set_style(
             ProgressStyle::default_bar()
                 .template("[Metapath walk gen: {elapsed_precise}] {bar:40.cyan/blue} {pos}/{len}")
@@ -607,7 +613,7 @@ mod het_tests {
     fn test_walks_follow_the_schema() {
         let g = toy();
         let mp = Metapath::parse("a-b-a", g.type_names()).unwrap();
-        let (walks, _) = g.generate_walks(&mp, 5, 7, 42).unwrap();
+        let (walks, _) = g.generate_walks(&mp, 5, 7, 42, false).unwrap();
 
         assert!(!walks.is_empty());
         for walk in &walks {
@@ -626,7 +632,7 @@ mod het_tests {
         let g = toy();
         let mp = Metapath::parse("a-b-a", g.type_names()).unwrap();
         let walks_per_node = 5;
-        let (walks, stats) = g.generate_walks(&mp, walks_per_node, 7, 42).unwrap();
+        let (walks, stats) = g.generate_walks(&mp, walks_per_node, 7, 42, false).unwrap();
 
         // Node 0 reaches b and back; node 1 has no b neighbour, so every walk
         // from it is length 1 and gets dropped. Nothing else can start.
@@ -645,7 +651,7 @@ mod het_tests {
             types: vec![3, 0, 3],
         };
         assert!(matches!(
-            g.generate_walks(&mp, 1, 3, 42),
+            g.generate_walks(&mp, 1, 3, 42, false),
             Err(Node2VecError::EmptyStartSet { .. })
         ));
     }
@@ -654,11 +660,11 @@ mod het_tests {
     fn test_walks_are_deterministic() {
         let g = toy();
         let mp = Metapath::parse("a-b-a", g.type_names()).unwrap();
-        let (a, _) = g.generate_walks(&mp, 5, 9, 7).unwrap();
-        let (b, _) = g.generate_walks(&mp, 5, 9, 7).unwrap();
+        let (a, _) = g.generate_walks(&mp, 5, 9, 7, false).unwrap();
+        let (b, _) = g.generate_walks(&mp, 5, 9, 7, false).unwrap();
         assert_eq!(a, b);
 
-        let (c, _) = g.generate_walks(&mp, 5, 9, 8).unwrap();
+        let (c, _) = g.generate_walks(&mp, 5, 9, 8, false).unwrap();
         assert_ne!(a, c);
     }
 
@@ -686,7 +692,7 @@ mod het_tests {
         let mp = Metapath { types: vec![0, 0] };
         assert_eq!(mp.period(), 1);
 
-        let (walks, _) = g.generate_walks(&mp, 4000, 2, 42).unwrap();
+        let (walks, _) = g.generate_walks(&mp, 4000, 2, 42, false).unwrap();
         let from_zero: Vec<u32> = walks.iter().filter(|w| w[0] == 0).map(|w| w[1]).collect();
 
         let to_one = from_zero.iter().filter(|&&n| n == 1).count() as f32;
@@ -702,7 +708,7 @@ mod het_tests {
         let g = toy();
         assert!(!g.weighted);
         let mp = Metapath::parse("a-b-a", g.type_names()).unwrap();
-        let (walks, _) = g.generate_walks(&mp, 200, 3, 1).unwrap();
+        let (walks, _) = g.generate_walks(&mp, 200, 3, 1, false).unwrap();
         // Node 0 has two b neighbours, sampled uniformly.
         let seconds: Vec<u32> = walks.iter().map(|w| w[1]).collect();
         let twos = seconds.iter().filter(|&&n| n == 2).count() as f32;

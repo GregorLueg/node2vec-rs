@@ -143,7 +143,7 @@ fn main() {
     let (walks, vocab_size, het_graph) = match het {
         Some((graph, schema)) => {
             let (walks, stats) = graph
-                .generate_walks(&schema, args.walks_per_node, args.walk_length, seed)
+                .generate_walks(&schema, args.walks_per_node, args.walk_length, seed, true)
                 .unwrap_or_else(|e| fail(e));
             println!("Metapath walks: {stats}");
             let vocab_size = graph.n_nodes();
@@ -153,7 +153,7 @@ fn main() {
             let graph =
                 read_graph(&args.input, args.directed, args.p, args.q).unwrap_or_else(|e| fail(e));
             let vocab_size = (graph.adjacency.keys().max().copied().unwrap_or(0) + 1) as usize;
-            let walks = graph.generate_walks(args.walks_per_node, args.walk_length, seed);
+            let walks = graph.generate_walks(args.walks_per_node, args.walk_length, seed, true);
             (walks, vocab_size, None)
         }
     };
