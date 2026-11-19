@@ -417,7 +417,8 @@ impl HetGraph {
     ///
     /// [`Node2VecError::EmptyStartSet`] when no node carries the starting
     /// type, which is almost always a typo in the schema rather than a graph
-    /// worth walking.
+    /// worth walking. [`Node2VecError::NoWalks`] when every walk dead-ends on
+    /// its first hop.
     pub fn generate_walks(
         &self,
         schema: &Metapath,
@@ -470,6 +471,9 @@ impl HetGraph {
 
         let truncated = walks.iter().filter(|w| w.len() < walk_length).count();
         walks.retain(|w| w.len() >= MIN_WALK_LEN);
+        if walks.is_empty() {
+            return Err(Node2VecError::NoWalks { attempted });
+        }
         let dropped = attempted - walks.len();
         let total: usize = walks.iter().map(Vec::len).sum();
         let mean_length = if walks.is_empty() {
@@ -653,6 +657,19 @@ mod het_tests {
         assert!(matches!(
             g.generate_walks(&mp, 1, 3, 42, false),
             Err(Node2VecError::EmptyStartSet { .. })
+        ));
+    }
+
+    #[test]
+    fn test_all_walks_dead_ending_errors() {
+        let g = toy();
+        // No `a` node has a `c` neighbour.
+        let mp = Metapath {
+            types: vec![0, 2, 0],
+        };
+        assert!(matches!(
+            g.generate_walks(&mp, 3, 3, 42, false),
+            Err(Node2VecError::NoWalks { attempted: 6 })
         ));
     }
 
