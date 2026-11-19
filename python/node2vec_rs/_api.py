@@ -119,8 +119,8 @@ def node2vec(
         normalise: L2-normalise every output vector.
         seed: Random seed.
         n_threads: Threads for this call. None uses every core.
-        verbose: Progress bars and a training log, written by Rust straight to
-            the terminal. Jupyter does not show them.
+        verbose: Print stage timings and one line per epoch. In a terminal
+            the walks and training also get live progress bars.
 
     Returns:
         The embedding. Every node that appears in `src` or `dst` gets a row;
@@ -223,8 +223,8 @@ def metapath2vec(
         normalise: L2-normalise every output vector.
         seed: Random seed.
         n_threads: Threads for this call. None uses every core.
-        verbose: Progress bars and a training log, written by Rust straight to
-            the terminal. Jupyter does not show them.
+        verbose: Print stage timings and one line per epoch. In a terminal
+            the walks and training also get live progress bars.
 
     Returns:
         The embedding with `types` and `walk_stats` set. Rows are grouped by

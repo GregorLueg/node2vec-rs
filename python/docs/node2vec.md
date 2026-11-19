@@ -69,5 +69,18 @@ from run to run at the same seed.
 Need bit-identical vectors? Pass `n_threads=1`. Walk generation itself is
 reproducible at any thread count.
 
-`verbose=True` prints progress bars and a training log from Rust straight to the
-terminal. Jupyter doesn't show them.
+`verbose=True` prints how long the graph and the walks took, then one line per
+epoch:
+
+```text
+Built graph with 16 nodes and 56 edges in 0.00s
+Generated 160 walks in 0.00s
+Training on 160 random walks (12_800 tokens per epoch, 38_400 total)
+  Epoch 1/3
+  Epoch 2/3
+  Epoch 3/3
+
+Training complete in 0.00s (11679425 tokens/sec)
+```
+
+In a terminal the walks and the training get live progress bars on top.

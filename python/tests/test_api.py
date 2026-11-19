@@ -87,6 +87,25 @@ def test_node2vec_takes_tuples() -> None:
     assert emb.ids.tolist() == ["a", "b", "c"]
 
 
+def test_node2vec_verbose_reports_stages_and_epochs(
+    capfd: pytest.CaptureFixture[str],
+) -> None:
+    src, dst = two_cliques()
+    node2vec_rs.node2vec(src, dst, epochs=2, verbose=True, **FAST)
+    out = capfd.readouterr().out
+    assert "Built graph with 16 nodes" in out
+    assert "Generated 160 walks" in out
+    assert "Epoch 2/2" in out
+
+
+def test_node2vec_quiet_by_default(capfd: pytest.CaptureFixture[str]) -> None:
+    src, dst = two_cliques()
+    node2vec_rs.node2vec(src, dst, **FAST)
+    captured = capfd.readouterr()
+    assert captured.out == ""
+    assert captured.err == ""
+
+
 def test_node2vec_integer_ids_and_weights() -> None:
     src = np.array([10, 20, 30, 10])
     dst = np.array([20, 30, 10, 40])
@@ -141,6 +160,25 @@ def test_metapath2vec_rows_line_up_with_ids_and_types(plus: bool) -> None:
     assert emb.walk_stats is not None
     assert emb.walk_stats["start_nodes"] == 6
     assert emb.walk_stats["dropped"] == 0
+
+
+def test_metapath2vec_verbose_reports_walk_stats(
+    capfd: pytest.CaptureFixture[str],
+) -> None:
+    g = toy_het()
+    node2vec_rs.metapath2vec(
+        g["src"],
+        g["dst"],
+        g["node_ids"],
+        g["node_types"],
+        "gene-pathway-gene",
+        verbose=True,
+        **FAST,
+    )
+    out = capfd.readouterr().out
+    assert "9 nodes of 3 types" in out
+    assert "6 start nodes" in out
+    assert "Epoch" in out
 
 
 def test_metapath2vec_keeps_integer_id_dtype() -> None:

@@ -1,6 +1,7 @@
 //! The two entry points and the training tail they share.
 
 use std::sync::Arc;
+use std::time::Instant;
 
 use node2vec_rs::cpu::train::{
     create_negative_table, create_negative_table_per_type, train_node2vec_cpu, CpuTrainArgs,
@@ -53,7 +54,8 @@ pub(crate) struct Params {
     seed: usize,
     /// Threads for this call, or `None` for rayon's default.
     n_threads: Option<usize>,
-    /// Progress bars and training log on the Rust side.
+    /// Stage timings, per-epoch lines, and progress bars when stdout is a
+    /// terminal.
     verbose: bool,
 }
 
@@ -222,13 +224,30 @@ pub(crate) fn run_node2vec<'py>(
 
     let data = py.detach(|| {
         in_pool(params.n_threads, || {
+            let start = Instant::now();
             let graph = Node2VecGraph::from_edges(&edges, directed, p, q);
+            if params.verbose {
+                println!(
+                    "Built graph with {n_nodes} nodes and {} edges in {:.2}s",
+                    edges.len(),
+                    start.elapsed().as_secs_f64()
+                );
+            }
+
+            let start = Instant::now();
             let walks = graph.generate_walks(
                 params.walks_per_node,
                 params.walk_length,
                 params.seed,
                 params.verbose,
             );
+            if params.verbose {
+                println!(
+                    "Generated {} walks in {:.2}s",
+                    walks.len(),
+                    start.elapsed().as_secs_f64()
+                );
+            }
             let neg_table = NegativeTable::Global(create_negative_table(
                 n_nodes,
                 &walks,
@@ -284,8 +303,20 @@ pub(crate) fn run_metapath2vec<'py>(
     let (data, names, stats) = py
         .detach(|| {
             in_pool(params.n_threads, || -> Result<_, CoreError> {
+                let start = Instant::now();
                 let graph = HetGraph::from_edges(nodes, edges, weighted, directed)?;
                 let schema = Metapath::parse(metapath, graph.type_names())?;
+                if params.verbose {
+                    println!(
+                        "Built graph with {} nodes of {} types and {} edges in {:.2}s",
+                        graph.n_nodes(),
+                        graph.n_types(),
+                        graph.n_edges(),
+                        start.elapsed().as_secs_f64()
+                    );
+                }
+
+                let start = Instant::now();
                 let (walks, stats) = graph.generate_walks(
                     &schema,
                     params.walks_per_node,
@@ -293,6 +324,12 @@ pub(crate) fn run_metapath2vec<'py>(
                     params.seed,
                     params.verbose,
                 )?;
+                if params.verbose {
+                    println!(
+                        "Metapath walks in {:.2}s: {stats}",
+                        start.elapsed().as_secs_f64()
+                    );
+                }
                 let neg_table = if plus {
                     NegativeTable::PerType {
                         tables: create_negative_table_per_type(
