@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.5.0] - Unreleased
+
+### Added
+
+- Python bindings in `python/`, published to PyPI as `node2vec-rs` and
+  versioned separately. They wrap the CPU backend only.
+- `Node2VecGraph::from_edges` builds the graph from an in-memory edge list.
+  `read_graph` now goes through it.
+- `Matrix::into_vec` hands back the flat row-major data.
+
+### Changed
+
+- **Breaking:** `Node2VecGraph::generate_walks` and `HetGraph::generate_walks`
+  take a `verbose` flag. The progress bar only shows when it is true. Results
+  are unchanged at the same seed.
+
+### Fixed
+
+- A metapath run where every walk dead-ends on its first hop returns
+  `Node2VecError::NoWalks` instead of panicking in the trainer.
+
 ## [0.4.0] - 2026-10-17
 
 ### Changed

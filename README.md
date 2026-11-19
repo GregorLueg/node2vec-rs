@@ -33,6 +33,24 @@ cargo build --release
 cargo run --release -- --input tests/data/karate.csv
 ```
 
+## Python
+
+The CPU backend, node2vec and metapath2vec, is also on PyPI:
+
+```bash
+uv pip install node2vec-rs
+```
+
+```python
+import node2vec_rs
+
+emb = node2vec_rs.node2vec(src, dst, dim=64, q=0.5)
+emb.vectors, emb.ids
+```
+
+Docs are at <https://gregorlueg.github.io/node2vec-rs/>. The bindings live in
+[`python/`](python/) and version separately from the crate.
+
 ## Backends
 
 ### CPU (default)
