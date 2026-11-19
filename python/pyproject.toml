@@ -18,10 +18,14 @@ classifiers = [
 ]
 
 [project.urls]
+Documentation = "https://gregorlueg.github.io/node2vec-rs/"
 Repository = "https://github.com/GregorLueg/node2vec-rs"
 
 [dependency-groups]
 dev = ["maturin>=1.15,<2.0", "pytest>=8", "ruff>=0.9", "ty>=0.0.1"]
+# mkdocstrings reads the installed package, so a docs build needs the compiled
+# extension present: `maturin develop --release` before `mkdocs build`.
+docs = ["mkdocs>=1.6", "mkdocs-material>=9.5", "mkdocstrings[python]>=0.27"]
 
 [tool.maturin]
 manifest-path = "Cargo.toml"

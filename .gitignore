@@ -17,6 +17,7 @@ python/target
 python/.venv
 python/node2vec_rs/*.so
 python/node2vec_rs/*.pyd
+python/site
 __pycache__/
 .pytest_cache/
 .ruff_cache/
