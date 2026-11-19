@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.5.0] - Unreleased
+## [0.5.0]
 
 ### Added
 
@@ -21,7 +21,7 @@
 - A metapath run where every walk dead-ends on its first hop returns
   `Node2VecError::NoWalks` instead of panicking in the trainer.
 
-## [0.4.0] - 2026-10-17
+## [0.4.0]
 
 ### Changed
 
@@ -41,7 +41,7 @@
 - **Breaking:** the `tch-cpu` and `tch-mps` features. Use `flex` on the CPU
   and `metal` on Apple Silicon.
 
-## [0.3.0] - 2026-09-17
+## [0.3.0]
 
 ### Added
 
@@ -72,7 +72,7 @@
   from 85.0 to 36.8 ns. The x86 kernels are unmeasured.
 - Broken intra-doc links in the `burn` and `het` modules.
 
-## [0.2.0] - 2026-06-02
+## [0.2.0]
 
 ### Changed
 
@@ -82,7 +82,7 @@
 - Feature flags documented in the crate docs via `document-features`.
 - Release workflow publishes automatically.
 
-## [0.1.6] - 2026-02-25
+## [0.1.6]
 
 ### Added
 
@@ -93,13 +93,13 @@
 - Shuffling during CPU training.
 - Better seeding of the random walks.
 
-## [0.1.5] - 2026-02-22
+## [0.1.5]
 
 ### Changed
 
 - Less noisy progress output.
 
-## [0.1.4] - 2026-02-07
+## [0.1.4]
 
 ### Added
 
@@ -117,7 +117,7 @@
 
 - Shuffling of the training data.
 
-## [0.1.3] - 2026-02-03
+## [0.1.3]
 
 ### Changed
 
@@ -129,7 +129,7 @@
 
 - Forward pass, and node ordering in the extracted embeddings.
 
-## [0.1.2] - 2026-02-02
+## [0.1.2]
 
 ### Added
 
@@ -139,7 +139,7 @@
 
 - Burn 0.19 to 0.20.
 
-## [0.1.1] - 2025-11-19
+## [0.1.1]
 
 ### Added
 
@@ -149,7 +149,7 @@
 
 - More fields and functions public.
 
-## [0.1.0] - 2025-11-16
+## [0.1.0]
 
 First release. node2vec with biased walks and skip-gram training on Burn,
 with libtorch, ndarray and wgpu backends, a CLI and CI.
