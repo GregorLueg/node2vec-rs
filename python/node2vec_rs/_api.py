@@ -6,10 +6,11 @@ worth keeping, so these are functions rather than an estimator.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Protocol, TypeAlias, runtime_checkable
 
 import numpy as np
-import numpy.typing as npt
 from beartype import beartype
 
 from . import _node2vec_rs as _core
@@ -20,6 +21,21 @@ from . import _node2vec_rs as _core
 
 #: Node indices cross the FFI as `u32`.
 _MAX_NODES: int = np.iinfo(np.uint32).max
+
+
+@runtime_checkable
+class _SupportsArray(Protocol):
+    """Anything numpy can turn into an array, e.g. a polars Series."""
+
+    def __array__(self) -> np.ndarray: ...
+
+
+#: Node ids: strings or integers. Not `Ids`, which beartype rejects
+#: for a plain tuple of strings, the very thing `zip(*G.edges())` hands back.
+Ids: TypeAlias = np.ndarray | _SupportsArray | Sequence[str] | Sequence[int]
+
+#: Edge weights.
+Weights: TypeAlias = np.ndarray | _SupportsArray | Sequence[float] | Sequence[int]
 
 
 @dataclass(frozen=True)
@@ -50,9 +66,9 @@ class Embedding:
 
 @beartype
 def node2vec(
-    src: npt.ArrayLike,
-    dst: npt.ArrayLike,
-    weight: npt.ArrayLike | None = None,
+    src: Ids,
+    dst: Ids,
+    weight: Weights | None = None,
     *,
     directed: bool = False,
     p: float = 1.0,
@@ -153,12 +169,12 @@ def node2vec(
 
 @beartype
 def metapath2vec(
-    src: npt.ArrayLike,
-    dst: npt.ArrayLike,
-    node_ids: npt.ArrayLike,
-    node_types: npt.ArrayLike,
+    src: Ids,
+    dst: Ids,
+    node_ids: Ids,
+    node_types: Ids,
     metapath: str,
-    weight: npt.ArrayLike | None = None,
+    weight: Weights | None = None,
     *,
     plus: bool = False,
     directed: bool = False,
@@ -276,9 +292,7 @@ def metapath2vec(
 
 
 @beartype
-def _edge_arrays(
-    src: npt.ArrayLike, dst: npt.ArrayLike
-) -> tuple[np.ndarray, np.ndarray]:
+def _edge_arrays(src: Ids, dst: Ids) -> tuple[np.ndarray, np.ndarray]:
     """Coerce the edge endpoints to 1-D arrays of equal, non-zero length."""
     src_a = np.asarray(src)
     dst_a = np.asarray(dst)
@@ -293,7 +307,7 @@ def _edge_arrays(
 
 
 @beartype
-def _weights(weight: npt.ArrayLike | None, n_edges: int) -> np.ndarray | None:
+def _weights(weight: Weights | None, n_edges: int) -> np.ndarray | None:
     """Coerce edge weights to contiguous float32 and check them."""
     if weight is None:
         return None

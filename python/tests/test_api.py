@@ -81,6 +81,12 @@ def test_node2vec_single_thread_is_reproducible() -> None:
     assert not np.array_equal(a.vectors, c.vectors)
 
 
+def test_node2vec_takes_tuples() -> None:
+    src, dst = zip(*[("a", "b"), ("b", "c"), ("c", "a")], strict=True)
+    emb = node2vec_rs.node2vec(src, dst, weight=(1, 2, 3), **FAST)
+    assert emb.ids.tolist() == ["a", "b", "c"]
+
+
 def test_node2vec_integer_ids_and_weights() -> None:
     src = np.array([10, 20, 30, 10])
     dst = np.array([20, 30, 10, 40])
