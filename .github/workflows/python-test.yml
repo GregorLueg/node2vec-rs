@@ -1,0 +1,31 @@
+name: Test the Python bindings
+
+# The name matters. python-release.yml keys its workflow_run trigger off it,
+# so renaming this silently stops every release.
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'python/**'
+      - 'src/**'
+      - 'Cargo.toml'
+      - '.github/workflows/python-test.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'python/**'
+      - 'src/**'
+      - 'Cargo.toml'
+      - '.github/workflows/python-test.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    uses: GregorLueg/personal-actions/.github/workflows/python-maturin-test.yml@v1
+    with:
+      package: node2vec_rs
